@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { AlertTriangle, ExternalLink, Loader2 } from 'lucide-react';
+import { AlertTriangle, ExternalLink, Loader2, Shield, ShieldOff } from 'lucide-react';
+import { useUIStore } from '../../stores/ui-store';
 
 interface Props {
   url: string;
@@ -10,6 +11,13 @@ export function SmartIframe({ url }: Props) {
   const [blocked, setBlocked] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const useProxy = useUIStore((s) => s.useProxy);
+  const setUseProxy = useUIStore((s) => s.setUseProxy);
+
+  const iframeSrc = useProxy
+    ? `/api/v1/proxy?url=${encodeURIComponent(url)}`
+    : url;
 
   useEffect(() => {
     setLoading(true);
@@ -24,7 +32,7 @@ export function SmartIframe({ url }: Props) {
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [url]);
+  }, [iframeSrc]);
 
   const handleLoad = () => {
     if (timerRef.current) clearTimeout(timerRef.current);
@@ -57,13 +65,27 @@ export function SmartIframe({ url }: Props) {
       {/* Always-visible toolbar */}
       <div className="flex items-center justify-between px-3 py-1.5 bg-gray-800 border-b border-gray-700 shrink-0">
         <span className="text-xs text-gray-500 truncate max-w-xs">{url}</span>
-        <button
-          onClick={() => window.open(url, '_blank')}
-          className="flex items-center gap-1.5 px-2.5 py-1 text-xs text-gray-300 hover:text-white bg-gray-700 hover:bg-gray-600 rounded transition-colors shrink-0 ml-2"
-        >
-          <ExternalLink className="w-3.5 h-3.5" />
-          Open in New Window
-        </button>
+        <div className="flex items-center gap-2 shrink-0 ml-2">
+          <button
+            onClick={() => setUseProxy(!useProxy)}
+            title={useProxy ? 'Proxy Mode (click to switch to Direct)' : 'Direct Mode (click to switch to Proxy)'}
+            className={`flex items-center gap-1 px-2 py-1 text-xs rounded transition-colors ${
+              useProxy
+                ? 'text-green-400 bg-green-900/30 hover:bg-green-900/50'
+                : 'text-gray-400 bg-gray-700 hover:bg-gray-600'
+            }`}
+          >
+            {useProxy ? <Shield className="w-3.5 h-3.5" /> : <ShieldOff className="w-3.5 h-3.5" />}
+            {useProxy ? 'Proxy' : 'Direct'}
+          </button>
+          <button
+            onClick={() => window.open(url, '_blank')}
+            className="flex items-center gap-1.5 px-2.5 py-1 text-xs text-gray-300 hover:text-white bg-gray-700 hover:bg-gray-600 rounded transition-colors"
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+            Open in New Window
+          </button>
+        </div>
       </div>
 
       <div className="relative flex-1">
@@ -84,26 +106,45 @@ export function SmartIframe({ url }: Props) {
                 This page cannot be embedded
               </h3>
               <p className="text-sm text-gray-400 mb-2">
-                The site blocks iframe embedding via{' '}
-                <code className="bg-gray-700 px-1 rounded text-xs">X-Frame-Options</code> or{' '}
-                <code className="bg-gray-700 px-1 rounded text-xs">Content-Security-Policy</code>.
+                {useProxy
+                  ? 'The proxy could not load this page. Try opening it in a new window.'
+                  : (
+                    <>
+                      The site blocks iframe embedding via{' '}
+                      <code className="bg-gray-700 px-1 rounded text-xs">X-Frame-Options</code> or{' '}
+                      <code className="bg-gray-700 px-1 rounded text-xs">Content-Security-Policy</code>.
+                    </>
+                  )}
               </p>
-              <p className="text-xs text-gray-500 mb-6">
-                This is a browser security restriction and cannot be bypassed client-side.
-              </p>
-              <button
-                onClick={() => window.open(url, '_blank')}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 transition-colors mx-auto"
-              >
-                <ExternalLink className="w-4 h-4" />
-                Open in New Window
-              </button>
+              {!useProxy && (
+                <p className="text-xs text-gray-500 mb-4">
+                  Try switching to Proxy Mode using the toolbar button above.
+                </p>
+              )}
+              <div className="flex items-center justify-center gap-3 mt-4">
+                {!useProxy && (
+                  <button
+                    onClick={() => setUseProxy(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-green-700 text-white rounded-md text-sm hover:bg-green-600 transition-colors"
+                  >
+                    <Shield className="w-4 h-4" />
+                    Try Proxy Mode
+                  </button>
+                )}
+                <button
+                  onClick={() => window.open(url, '_blank')}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 transition-colors"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  Open in New Window
+                </button>
+              </div>
             </div>
           </div>
         ) : (
           <iframe
             ref={iframeRef}
-            src={url}
+            src={iframeSrc}
             className="w-full h-full border-none"
             onLoad={handleLoad}
             onError={handleError}
