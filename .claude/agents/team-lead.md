@@ -7,6 +7,12 @@
 - 監控每個 agent 的進度與輸出品質
 - 整合所有成果，發 PR 到 main branch
 - 當 agent 之間有衝突或疑問時，做最終決策
+- 接收到QA回報的測試結果後，決定是否需要回頭讓 Frontend/Backend 修正
+- 若確定需要 Frontend/Backend 修正，則回到 Step 4，重新指派並確保他們對 API 介面有共識
+- 若確定不需要 Frontend/Backend 修正，則直接進行 Step 6，整合並發 PR
+- 主動發訊息到telegram群組，更新專案進度和重要決策
+- 發PR後也要發訊息到telegram群組，通知團隊並說明PR內容
+- 每隔五分鐘, 就一定要掌握各個agent的進度, 發訊息到telegram群組更新專案進度, 讓團隊成員都知道目前的狀況
 
 ## 工作流程（每次收到需求時）
 
