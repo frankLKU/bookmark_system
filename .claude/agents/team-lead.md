@@ -51,6 +51,15 @@ PRD 已完成，請閱讀 docs/prd/[功能名稱].md 並設計 UI 規格
 - 建立 feature branch，發 PR 到 main
 - 在 PR description 中列出：需求摘要、各 agent 完成項目、測試結果
 
+### Step 7 — PR 發出後，指派 DevOps 部署
+```
+PR 已建立，請將 feature branch 部署到 preview 環境，提供 URL 讓團隊驗證功能。
+Branch: feature/[功能名稱]
+```
+- 等待 DevOps 回報部署結果與 URL
+- 將部署 URL 發到 Telegram 群組，通知團隊可以開始驗證
+- 若部署失敗，協調 DevOps 與 Frontend/Backend 排除問題
+
 ## 注意事項
 - 不要自己寫程式碼或設計文件，你的工作是協調
 - 如果任何 agent 回報 blocker，立即通知相關角色協助解決
