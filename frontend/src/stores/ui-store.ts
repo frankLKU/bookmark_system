@@ -7,14 +7,10 @@ interface UIStore {
   theme: Theme;
   collapsedCategories: string[];
   keyboardNavIndex: number;
-  proxyBaseUrl: string;
-  useProxy: boolean;
 
   setTheme: (theme: Theme) => void;
   toggleCategory: (categoryName: string) => void;
   setKeyboardNavIndex: (index: number) => void;
-  setProxyBaseUrl: (url: string) => void;
-  setUseProxy: (enabled: boolean) => void;
 }
 
 export const useUIStore = create<UIStore>()(
@@ -23,12 +19,8 @@ export const useUIStore = create<UIStore>()(
       theme: 'system',
       collapsedCategories: [],
       keyboardNavIndex: -1,
-      proxyBaseUrl: 'http://localhost:8000',
-      useProxy: true,
 
       setTheme: (theme) => set({ theme }),
-      setProxyBaseUrl: (url) => set({ proxyBaseUrl: url }),
-      setUseProxy: (enabled) => set({ useProxy: enabled }),
 
       toggleCategory: (categoryName) =>
         set((state) => ({

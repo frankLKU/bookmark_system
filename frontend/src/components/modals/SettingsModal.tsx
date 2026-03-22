@@ -11,10 +11,6 @@ interface Props {
 export function SettingsModal({ onClose, onManageCategories }: Props) {
   const theme = useUIStore((s) => s.theme);
   const setTheme = useUIStore((s) => s.setTheme);
-  const useProxy = useUIStore((s) => s.useProxy);
-  const setUseProxy = useUIStore((s) => s.setUseProxy);
-  const proxyBaseUrl = useUIStore((s) => s.proxyBaseUrl);
-  const setProxyBaseUrl = useUIStore((s) => s.setProxyBaseUrl);
   const importFromJSON = useBookmarkStore((s) => s.importFromJSON);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -63,37 +59,6 @@ export function SettingsModal({ onClose, onManageCategories }: Props) {
           >
             Manage Categories
           </button>
-        </div>
-
-        <div>
-          <label className="block text-sm text-gray-400 mb-2">Proxy Settings</label>
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-300">Enable Proxy Mode</span>
-              <button
-                onClick={() => setUseProxy(!useProxy)}
-                className={`relative w-10 h-5 rounded-full transition-colors ${
-                  useProxy ? 'bg-blue-600' : 'bg-gray-600'
-                }`}
-              >
-                <span
-                  className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform ${
-                    useProxy ? 'translate-x-5' : ''
-                  }`}
-                />
-              </button>
-            </div>
-            <div>
-              <label className="block text-xs text-gray-500 mb-1">Proxy Server URL</label>
-              <input
-                type="text"
-                value={proxyBaseUrl}
-                onChange={(e) => setProxyBaseUrl(e.target.value)}
-                className="w-full px-3 py-1.5 bg-gray-700 text-gray-200 rounded-md text-sm border border-gray-600 focus:border-blue-500 focus:outline-none"
-                placeholder="http://localhost:8000"
-              />
-            </div>
-          </div>
         </div>
 
         <div>

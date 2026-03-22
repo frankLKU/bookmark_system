@@ -9,20 +9,6 @@ from fastapi.responses import StreamingResponse
 
 router = APIRouter()
 
-# Whitelist patterns for allowed domains
-ALLOWED_DOMAIN_PATTERNS = [
-    r".*spark.*",
-    r".*airflow.*",
-    r".*grafana.*",
-    r".*jenkins.*",
-    r".*jupyter.*",
-    r".*superset.*",
-    r".*kibana.*",
-    r".*redash.*",
-    r".*metabase.*",
-    r".*zeppelin.*",
-]
-
 # Headers to strip from proxied responses
 STRIPPED_RESPONSE_HEADERS = {
     "x-frame-options",
@@ -46,10 +32,7 @@ def _is_url_allowed(url: str) -> bool:
     # Block private/internal IPs to prevent SSRF
     if hostname in ("localhost", "127.0.0.1", "0.0.0.0") or hostname.startswith("169.254."):
         return False
-    for pattern in ALLOWED_DOMAIN_PATTERNS:
-        if re.match(pattern, hostname, re.IGNORECASE):
-            return True
-    return False
+    return True
 
 
 def _check_rate_limit(client_ip: str) -> None:

@@ -1,95 +1,77 @@
-import { useEffect, useRef, useState } from 'react';
-import { AlertTriangle, ExternalLink, Loader2, Shield, ShieldOff } from 'lucide-react';
-import { useUIStore } from '../../stores/ui-store';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ExternalLink, Loader2, RefreshCw } from 'lucide-react';
 
 interface Props {
   url: string;
 }
 
+type LoadState = 'loading' | 'loaded' | 'error';
+
 export function SmartIframe({ url }: Props) {
-  const [loading, setLoading] = useState(true);
-  const [blocked, setBlocked] = useState(false);
+  const [state, setState] = useState<LoadState>('loading');
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const useProxy = useUIStore((s) => s.useProxy);
-  const setUseProxy = useUIStore((s) => s.setUseProxy);
-
-  const iframeSrc = useProxy
-    ? `/api/v1/proxy?url=${encodeURIComponent(url)}`
-    : url;
+  // Always proxy to strip X-Frame-Options / CSP headers
+  const iframeSrc = `/api/v1/proxy?url=${encodeURIComponent(url)}`;
 
   useEffect(() => {
-    setLoading(true);
-    setBlocked(false);
+    setState('loading');
 
-    // Fallback: if iframe doesn't become interactive within 8s, assume blocked
     timerRef.current = setTimeout(() => {
-      setLoading(false);
-      setBlocked(true);
-    }, 8000);
+      setState('error');
+    }, 15000);
 
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [iframeSrc]);
+  }, [url]);
 
   const handleLoad = () => {
     if (timerRef.current) clearTimeout(timerRef.current);
-    setLoading(false);
-
-    // X-Frame-Options / CSP blocks don't fire onError — they fire onLoad with
-    // a blocked empty document. Detect by trying to read contentDocument.
-    try {
-      const doc = iframeRef.current?.contentDocument;
-      if (doc === null) {
-        setBlocked(true);
-        return;
-      }
-      if (doc && doc.body && doc.body.childElementCount === 0 && doc.title === '') {
-        setBlocked(true);
-      }
-    } catch {
-      // SecurityError = cross-origin frame loaded successfully — this is fine
-    }
+    setState('loaded');
   };
 
   const handleError = () => {
     if (timerRef.current) clearTimeout(timerRef.current);
-    setLoading(false);
-    setBlocked(true);
+    setState('error');
   };
+
+  const reload = useCallback(() => {
+    setState('loading');
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => setState('error'), 15000);
+    if (iframeRef.current) {
+      iframeRef.current.src = iframeSrc + '&_t=' + Date.now();
+    }
+  }, [iframeSrc]);
 
   return (
     <div className="relative w-full h-full flex flex-col">
-      {/* Always-visible toolbar */}
+      {/* Toolbar */}
       <div className="flex items-center justify-between px-3 py-1.5 bg-gray-800 border-b border-gray-700 shrink-0">
-        <span className="text-xs text-gray-500 truncate max-w-xs">{url}</span>
+        <span className="text-xs text-gray-500 truncate max-w-md">{url}</span>
         <div className="flex items-center gap-2 shrink-0 ml-2">
           <button
-            onClick={() => setUseProxy(!useProxy)}
-            title={useProxy ? 'Proxy Mode (click to switch to Direct)' : 'Direct Mode (click to switch to Proxy)'}
-            className={`flex items-center gap-1 px-2 py-1 text-xs rounded transition-colors ${
-              useProxy
-                ? 'text-green-400 bg-green-900/30 hover:bg-green-900/50'
-                : 'text-gray-400 bg-gray-700 hover:bg-gray-600'
-            }`}
+            onClick={reload}
+            title="Reload"
+            className="flex items-center gap-1 px-2 py-1 text-xs text-gray-400 bg-gray-700 hover:bg-gray-600 rounded transition-colors"
           >
-            {useProxy ? <Shield className="w-3.5 h-3.5" /> : <ShieldOff className="w-3.5 h-3.5" />}
-            {useProxy ? 'Proxy' : 'Direct'}
+            <RefreshCw className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={() => window.open(url, '_blank')}
+            title="Open in browser"
             className="flex items-center gap-1.5 px-2.5 py-1 text-xs text-gray-300 hover:text-white bg-gray-700 hover:bg-gray-600 rounded transition-colors"
           >
             <ExternalLink className="w-3.5 h-3.5" />
-            Open in New Window
+            Open in Browser
           </button>
         </div>
       </div>
 
       <div className="relative flex-1">
-        {loading && (
+        {state === 'loading' && (
           <div className="absolute inset-0 flex items-center justify-center bg-gray-900/50 z-10">
             <div className="flex items-center gap-2 text-gray-400">
               <Loader2 className="w-5 h-5 animate-spin" />
@@ -98,45 +80,29 @@ export function SmartIframe({ url }: Props) {
           </div>
         )}
 
-        {blocked ? (
+        {state === 'error' ? (
           <div className="flex items-center justify-center h-full">
             <div className="max-w-md rounded-lg p-8 shadow-lg bg-gray-800 text-center">
-              <AlertTriangle className="w-10 h-10 text-yellow-500 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-200 mb-2">
-                This page cannot be embedded
+                Unable to load this page
               </h3>
-              <p className="text-sm text-gray-400 mb-2">
-                {useProxy
-                  ? 'The proxy could not load this page. Try opening it in a new window.'
-                  : (
-                    <>
-                      The site blocks iframe embedding via{' '}
-                      <code className="bg-gray-700 px-1 rounded text-xs">X-Frame-Options</code> or{' '}
-                      <code className="bg-gray-700 px-1 rounded text-xs">Content-Security-Policy</code>.
-                    </>
-                  )}
+              <p className="text-sm text-gray-400 mb-4">
+                The page could not be loaded through the proxy. It may require authentication or be unavailable.
               </p>
-              {!useProxy && (
-                <p className="text-xs text-gray-500 mb-4">
-                  Try switching to Proxy Mode using the toolbar button above.
-                </p>
-              )}
-              <div className="flex items-center justify-center gap-3 mt-4">
-                {!useProxy && (
-                  <button
-                    onClick={() => setUseProxy(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-green-700 text-white rounded-md text-sm hover:bg-green-600 transition-colors"
-                  >
-                    <Shield className="w-4 h-4" />
-                    Try Proxy Mode
-                  </button>
-                )}
+              <div className="flex items-center justify-center gap-3">
+                <button
+                  onClick={reload}
+                  className="flex items-center gap-2 px-4 py-2 bg-gray-700 text-white rounded-md text-sm hover:bg-gray-600 transition-colors"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  Retry
+                </button>
                 <button
                   onClick={() => window.open(url, '_blank')}
                   className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 transition-colors"
                 >
                   <ExternalLink className="w-4 h-4" />
-                  Open in New Window
+                  Open in Browser
                 </button>
               </div>
             </div>
@@ -148,7 +114,7 @@ export function SmartIframe({ url }: Props) {
             className="w-full h-full border-none"
             onLoad={handleLoad}
             onError={handleError}
-            referrerPolicy="no-referrer"
+            sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox"
           />
         )}
       </div>
