@@ -52,13 +52,19 @@
 2. 讀取最近 3 個日期的 daily log（`.claude_memories/YYYY-MM-DD.md`）
 3. 若 `.claude_memories/CHRONICLES.md` 有資料，先摘要高層架構再開始工作
 
-### Session 結束時（當使用者說 "Save Memory" 或 "Done for today"）
-1. 產生當日摘要到 `.claude_memories/YYYY-MM-DD.md`，內容包含：
+### Auto-Sync（每次任務完成後，靜默執行）
+- 每次成功完成檔案修改、commit、部署或重要決策後，**必須自動更新** `.claude_memories/ACTIVE_CONTEXT.md`
+- 視為 database transaction：任務完成 → 寫入 ACTIVE_CONTEXT → 繼續下一步
+- 不需要使用者觸發，不需要通知使用者，背景自動執行
+
+### Session 結束時（當使用者說 "Save Memory" 或 "Done for today"，或對話即將結束）
+1. 產生或更新當日摘要到 `.claude_memories/YYYY-MM-DD.md`，內容包含：
    - [Tasks Completed]
    - [Technical Decisions & Why]
    - [Unresolved Issues / Next Steps]
    - [New Environment Variables/Config Added]
 2. 更新 `.claude_memories/ACTIVE_CONTEXT.md` 為最新狀態
+3. 即使使用者沒有明確說 "Save Memory"，session 結束前也應自動執行此流程
 
 ### 180 天清理
 - 執行 `python scripts/memory_cleanup.py` 可清理 180 天前的 daily log
