@@ -41,3 +41,25 @@
 4. **Frontend + Backend** 同步開始，先對齊 API 介面，再各自實作
 5. **QA** 根據 PRD 和實作撰寫測試，執行並回報結果
 6. **Team Lead** 整合所有結果，發 PR 到 main
+7. **DevOps** PR 發出後，部署到 preview 環境供遠端驗證
+
+## Hierarchical Memory System
+
+本專案使用 `.claude_memories/` 作為跨 session 的記憶系統。
+
+### Session 啟動時（必須執行）
+1. 讀取 `.claude_memories/ACTIVE_CONTEXT.md` 了解目前狀態
+2. 讀取最近 3 個日期的 daily log（`.claude_memories/YYYY-MM-DD.md`）
+3. 若 `.claude_memories/CHRONICLES.md` 有資料，先摘要高層架構再開始工作
+
+### Session 結束時（當使用者說 "Save Memory" 或 "Done for today"）
+1. 產生當日摘要到 `.claude_memories/YYYY-MM-DD.md`，內容包含：
+   - [Tasks Completed]
+   - [Technical Decisions & Why]
+   - [Unresolved Issues / Next Steps]
+   - [New Environment Variables/Config Added]
+2. 更新 `.claude_memories/ACTIVE_CONTEXT.md` 為最新狀態
+
+### 180 天清理
+- 執行 `python scripts/memory_cleanup.py` 可清理 180 天前的 daily log
+- 清理前會先將關鍵知識提取到 `CHRONICLES.md`，原始檔案移至 `archive/`
