@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Depends
 from typing import Optional
 
-from app.models import CategoryCreate, CategoryUpdate
+from app.models import CategoryCreate, CategoryUpdate, CategoryReorder
 from app.database import get_db
 
 router = APIRouter()
@@ -58,6 +58,14 @@ def create_category(category: CategoryCreate, db=Depends(get_db)):
         },
         "message": "Category created successfully", "success": True,
     }
+
+
+@router.put("/categories/reorder")
+def reorder_categories(body: CategoryReorder, db=Depends(get_db)):
+    for idx, cat_id in enumerate(body.order):
+        db.execute("UPDATE categories SET display_order = ?, updated_at = ? WHERE id = ?", (idx, _now(), cat_id))
+    db.commit()
+    return {"data": None, "message": "Categories reordered successfully", "success": True}
 
 
 @router.put("/categories/{category_id}")
