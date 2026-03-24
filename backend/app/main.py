@@ -1,5 +1,8 @@
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 
 from app.database import init_db
@@ -28,6 +31,7 @@ app.include_router(health.router, prefix="/api/v1", tags=["health"])
 app.include_router(proxy.router, prefix="/api/v1", tags=["proxy"])
 
 
-@app.get("/")
-def root():
-    return {"message": "Bookmark System API"}
+# Mount frontend static files (must be after API routes to avoid catching /api/* paths)
+FRONTEND_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "frontend")
+if os.path.isdir(FRONTEND_DIR):
+    app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")
