@@ -1,88 +1,34 @@
-from pydantic import BaseModel, HttpUrl
-from typing import Optional
-from datetime import datetime
+from pydantic import BaseModel
+from typing import Any, Optional
 
 
-class BookmarkBase(BaseModel):
+# --- Bookmarks ---
+
+class BookmarkCreate(BaseModel):
     title: str
     url: str
-    description: str = ""
-    category_id: Optional[int] = None
-
-
-class BookmarkCreate(BookmarkBase):
-    pass
-
+    category_id: Optional[str] = None
+    tags: list[str] = []
+    is_combined: bool = False
 
 class BookmarkUpdate(BaseModel):
     title: Optional[str] = None
     url: Optional[str] = None
-    description: Optional[str] = None
-    category_id: Optional[int] = None
+    category_id: Optional[str] = None
+    tags: Optional[list[str]] = None
+    is_combined: Optional[bool] = None
 
-
-class BookmarkResponse(BookmarkBase):
-    id: int
-    is_healthy: Optional[bool] = None
-    created_at: datetime
-    updated_at: datetime
-
-
-class HealthCheckResponse(BaseModel):
-    id: int
-    url: str
-    is_healthy: bool
-    status_code: int
-    checked_at: datetime
-
-
-class CategoryBase(BaseModel):
-    name: str
-
-
-class CategoryCreate(CategoryBase):
-    pass
-
-
-class CategoryUpdate(BaseModel):
-    name: Optional[str] = None
-
-
-class CategoryResponse(CategoryBase):
-    id: int
-    bookmark_count: int = 0
-    created_at: datetime
-    updated_at: datetime
-
-
-class ImportRequest(BaseModel):
-    content: str
-    category_id: Optional[int] = None
-
-
-class ImportBookmarkItem(BaseModel):
-    id: int
+class BookmarkResponse(BaseModel):
+    id: str
     title: str
     url: str
-    category_id: Optional[int] = None
-
-
-class ImportResponse(BaseModel):
-    imported_count: int
-    bookmarks: list[ImportBookmarkItem]
-
-
-class ExportCategory(BaseModel):
-    id: int
-    name: str
-    bookmarks: list[BookmarkResponse]
-
-
-class ExportResponse(BaseModel):
-    exported_at: datetime
-    total: int
-    categories: list[ExportCategory]
-
+    category_id: Optional[str] = None
+    category_name: Optional[str] = None
+    tags: list[str] = []
+    is_combined: bool = False
+    last_accessed: Optional[int] = None
+    created_at: str
+    updated_at: str
 
 class PaginatedBookmarks(BaseModel):
     items: list[BookmarkResponse]
@@ -91,7 +37,70 @@ class PaginatedBookmarks(BaseModel):
     per_page: int
 
 
+# --- Categories ---
+
+class CategoryCreate(BaseModel):
+    name: str
+
+class CategoryUpdate(BaseModel):
+    name: Optional[str] = None
+
+class CategoryReorder(BaseModel):
+    order: list[str]  # list of category IDs in desired order
+
+class CategoryResponse(BaseModel):
+    id: str
+    name: str
+    display_order: int = 0
+    bookmark_count: int = 0
+    created_at: str
+    updated_at: str
+
+
+# --- Import / Export ---
+
+class ImportOnetabRequest(BaseModel):
+    content: str
+
+class ImportPreviewItem(BaseModel):
+    temp_id: int
+    title: str
+    url: str
+    tags: list[str] = []
+    category: str = ""
+
+class ImportConfirmBookmark(BaseModel):
+    title: str
+    url: str
+    tags: list[str] = []
+    category: str = ""
+
+class ImportConfirmRequest(BaseModel):
+    bookmarks: list[ImportConfirmBookmark]
+
+class ExportCategory(BaseModel):
+    id: str
+    name: str
+    bookmarks: list[BookmarkResponse]
+
+class ExportResponse(BaseModel):
+    exported_at: str
+    total: int
+    categories: list[ExportCategory]
+
+
+# --- Health ---
+
+class HealthStatusItem(BaseModel):
+    bookmark_id: str
+    is_healthy: bool
+    status_code: int
+    checked_at: str
+
+
+# --- Common ---
+
 class APIResponse(BaseModel):
-    data: object = None
+    data: Any = None
     message: str = ""
     success: bool = True

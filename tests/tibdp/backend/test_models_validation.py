@@ -1,66 +1,53 @@
 import pytest
 from pydantic import ValidationError
-
 from app.models import (
-    BookmarkCreate,
-    BookmarkUpdate,
-    CategoryCreate,
-    CategoryUpdate,
-    ImportRequest,
+    BookmarkCreate, BookmarkUpdate, BookmarkResponse,
+    CategoryCreate, CategoryUpdate,
+    ImportOnetabRequest, ImportConfirmRequest, ImportConfirmBookmark,
 )
 
 
 class TestBookmarkCreate:
-    def test_valid_bookmark(self):
+    def test_valid_minimal(self):
         b = BookmarkCreate(title="Spark F18", url="https://spark-f18.tsmc.com")
         assert b.title == "Spark F18"
-        assert b.url == "https://spark-f18.tsmc.com"
-        assert b.description == ""
-        assert b.category_id is None
+        assert b.tags == []
+        assert b.is_combined is False
 
-    def test_with_all_fields(self):
+    def test_valid_full(self):
         b = BookmarkCreate(
             title="Spark F18",
             url="https://spark-f18.tsmc.com",
-            description="Spark dashboard",
-            category_id=1,
+            category_id="cat-uuid",
+            tags=["f18", "f14a"],
+            is_combined=True,
         )
-        assert b.description == "Spark dashboard"
-        assert b.category_id == 1
+        assert b.tags == ["f18", "f14a"]
+        assert b.is_combined is True
 
     def test_missing_title_raises(self):
         with pytest.raises(ValidationError):
-            BookmarkCreate(url="https://spark-f18.tsmc.com")
+            BookmarkCreate(url="https://spark.com")
 
     def test_missing_url_raises(self):
         with pytest.raises(ValidationError):
-            BookmarkCreate(title="Spark F18")
-
-    def test_empty_title_is_valid(self):
-        b = BookmarkCreate(title="", url="https://spark.com")
-        assert b.title == ""
-
-    def test_empty_url_is_valid(self):
-        b = BookmarkCreate(title="Test", url="")
-        assert b.url == ""
+            BookmarkCreate(title="Spark")
 
 
 class TestBookmarkUpdate:
-    def test_all_fields_optional(self):
+    def test_all_optional(self):
         b = BookmarkUpdate()
         assert b.title is None
-        assert b.url is None
-        assert b.description is None
-        assert b.category_id is None
+        assert b.tags is None
 
-    def test_partial_update(self):
-        b = BookmarkUpdate(title="New Title")
-        assert b.title == "New Title"
-        assert b.url is None
+    def test_partial(self):
+        b = BookmarkUpdate(title="New", tags=["f18"])
+        assert b.title == "New"
+        assert b.tags == ["f18"]
 
 
 class TestCategoryCreate:
-    def test_valid_category(self):
+    def test_valid(self):
         c = CategoryCreate(name="Monitoring")
         assert c.name == "Monitoring"
 
@@ -69,26 +56,19 @@ class TestCategoryCreate:
             CategoryCreate()
 
 
-class TestCategoryUpdate:
-    def test_all_fields_optional(self):
-        c = CategoryUpdate()
-        assert c.name is None
-
-    def test_with_name(self):
-        c = CategoryUpdate(name="Updated")
-        assert c.name == "Updated"
-
-
-class TestImportRequest:
-    def test_valid_import(self):
-        r = ImportRequest(content="https://spark.com | Spark")
+class TestImportOnetabRequest:
+    def test_valid(self):
+        r = ImportOnetabRequest(content="https://spark.com | Spark")
         assert r.content == "https://spark.com | Spark"
-        assert r.category_id is None
-
-    def test_with_category(self):
-        r = ImportRequest(content="https://spark.com | Spark", category_id=1)
-        assert r.category_id == 1
 
     def test_missing_content_raises(self):
         with pytest.raises(ValidationError):
-            ImportRequest()
+            ImportOnetabRequest()
+
+
+class TestImportConfirmRequest:
+    def test_valid(self):
+        r = ImportConfirmRequest(bookmarks=[
+            ImportConfirmBookmark(title="Spark", url="https://spark.com", tags=["f18"], category="Spark")
+        ])
+        assert len(r.bookmarks) == 1

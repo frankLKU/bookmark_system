@@ -4,7 +4,7 @@ from typing import Optional
 from app.models import (
     BookmarkCreate,
     BookmarkUpdate,
-    HealthCheckResponse,
+    HealthStatusItem,
 )
 
 router = APIRouter()
