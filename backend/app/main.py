@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
 from app.database import init_db
-from app.routers import bookmarks, categories, import_export, health
+from app.routers import bookmarks, categories, import_export, health, proxy
 
 
 @asynccontextmanager
@@ -25,7 +25,7 @@ app.include_router(bookmarks.router, prefix="/api/v1", tags=["bookmarks"])
 app.include_router(categories.router, prefix="/api/v1", tags=["categories"])
 app.include_router(import_export.router, prefix="/api/v1", tags=["import_export"])
 app.include_router(health.router, prefix="/api/v1", tags=["health"])
-# Note: proxy router will be added in Task 11
+app.include_router(proxy.router, prefix="/api/v1", tags=["proxy"])
 
 
 @app.get("/")
