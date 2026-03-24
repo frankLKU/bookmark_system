@@ -4,9 +4,9 @@
 **GitHub：** [https://github.com/frankLKU/bookmark_system]
 
 ## 技術棧
-- **Frontend：** React
-- **Backend：** Python / FastAPI
-- **測試：** pytest（backend）、Jest + React Testing Library（frontend）
+- **Frontend：** 純 HTML / CSS / JavaScript（靜態檔案，由 Backend 提供）
+- **Backend：** Python / FastAPI（同時 serve 靜態前端）
+- **測試：** pytest（backend）
 - **版本控制：** Git + GitHub PR flow
 
 ## 專案結構
@@ -16,9 +16,11 @@
 ├── docs/
 │   ├── prd/               ← PM 輸出的需求文件（.md）
 │   └── designs/           ← Designer 輸出的 UI 規格（.md）
-├── frontend/              ← React 專案
-│   └── src/
-├── backend/               ← FastAPI 專案
+├── frontend/              ← 純 HTML/CSS/JS 靜態前端
+│   ├── index.html
+│   ├── css/
+│   └── js/
+├── backend/               ← FastAPI 專案（同時 serve frontend 靜態檔案）
 │   └── app/
 └── tests/                 ← QA 測試案例
 ```
@@ -31,7 +33,7 @@
 
 ## API 介面規範
 - RESTful API，prefix 統一用 `/api/v1/`
-- 回傳格式：`{ "data": ..., "message": "...", "code": true/false }`
+- 回傳格式：`{ "data": ..., "message": "...", "success": true/false }`
 - Frontend 與 Backend 在開始實作前，必須先在 `docs/designs/api-[功能名稱].md` 中確認 API 介面
 
 ## 工作流程
@@ -39,9 +41,10 @@
 2. **PM** 撰寫 PRD，輸出到 `docs/prd/[功能名稱].md`
 3. **Designer** 根據 PRD 設計 UI，輸出到 `docs/designs/[功能名稱].md`
 4. **Frontend + Backend** 同步開始，先對齊 API 介面，再各自實作
-5. **QA** 根據 PRD 和實作撰寫測試，執行並回報結果
-6. **Team Lead** 整合所有結果，發 PR 到 main
-7. **DevOps** PR 發出後，部署到 preview 環境供遠端驗證
+5. **Code Reviewer** 審查 Frontend + Backend 程式碼品質與安全性
+6. **QA** 根據 PRD 和實作撰寫測試，執行並回報結果
+7. **Team Lead** 整合所有結果，發 PR 到 main
+8. **DevOps** PR 發出後，部署到 preview 環境供遠端驗證
 
 ## Hierarchical Memory System
 
