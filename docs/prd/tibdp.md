@@ -21,12 +21,13 @@ Provide semiconductor engineers with a centralized bookmark management system an
 
 | Layer | Technology |
 |-------|-----------|
-| Framework | React (Vite) + TypeScript |
-| Styling | Tailwind CSS + Shadcn UI |
-| State Management | Zustand (with persistence middleware) |
-| Icons | Lucide-react |
-| Data Persistence | LocalStorage / IndexedDB |
-| Backend | None (client-side only for MVP) |
+| Frontend | 純 HTML5 + CSS3 + Vanilla JavaScript（無框架、無 build tool） |
+| Styling | 原生 CSS（CSS Variables 支援 dark/light mode） |
+| State Management | JavaScript 物件 + Pub/Sub pattern |
+| Icons | SVG inline |
+| Data Persistence | SQLite（透過 Backend API 存取） |
+| Backend | Python FastAPI（serve API + 靜態前端檔案） |
+| Database | SQLite |
 
 ---
 
@@ -175,7 +176,7 @@ interface Category {
 - FR-4.6.2: Edit existing bookmark properties
 - FR-4.6.3: Delete bookmarks with confirmation
 - FR-4.6.4: Create, rename, reorder, and delete categories
-- FR-4.6.5: Persist all data to browser storage (LocalStorage or IndexedDB) via Zustand persistence middleware
+- FR-4.6.5: Persist all data to SQLite database via Backend API
 - FR-4.6.6: "Export to JSON" button that downloads the full bookmark dataset
 - FR-4.6.7: "Import from JSON" button to restore from a previously exported backup
 
@@ -211,7 +212,7 @@ interface Category {
 | NFR-1 | First meaningful paint < 1 second (client-side app, no network dependency for core data) |
 | NFR-2 | All bookmark operations (create, edit, delete) complete within 100ms perceived latency |
 | NFR-3 | Support 500+ bookmarks without noticeable performance degradation |
-| NFR-4 | No backend server required for MVP; all data is client-side |
+| NFR-4 | Single Python backend service (FastAPI + SQLite); no external database dependency |
 | NFR-5 | Compatible with latest Chrome and Edge browsers |
 
 ---
@@ -220,7 +221,7 @@ interface Category {
 
 | Priority | Feature | Rationale |
 |----------|---------|-----------|
-| P0 | Zustand bookmark store with persistence | Foundation for all data operations |
+| P0 | SQLite database + Backend API | Foundation for all data operations |
 | P0 | Sidebar with fuzzy search & keyboard nav | Primary navigation mechanism |
 | P0 | Main viewport with tab management & SmartIframe | Core viewing experience |
 | P1 | OneTab parser & import | Key onboarding flow for existing users |
@@ -247,12 +248,10 @@ interface Category {
 
 ## 8. API Interface Notes
 
-Since this is a client-side-only application for MVP, there are no backend REST APIs. All data operations go through the Zustand store with LocalStorage/IndexedDB persistence.
-
-If a backend is added later (e.g., for multi-device sync or team sharing), the API specification should follow the project convention:
+Backend provides RESTful API for all data operations:
 - Prefix: `/api/v1/`
 - Response format: `{ "data": ..., "message": "...", "success": true/false }`
-- API specs should be documented in `docs/designs/api-tibdp.md` before implementation
+- Full API specification: see `docs/superpowers/specs/2026-03-23-tibdp-implementation-design.md`
 
 ---
 
