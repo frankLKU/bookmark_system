@@ -1,4 +1,7 @@
 {
+  "env": {
+    "BOOKMARK_DB_PATH": "/tmp/bookmarks.db"
+  },
   "builds": [
     {
       "src": "api/index.py",

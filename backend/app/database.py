@@ -1,7 +1,8 @@
 import sqlite3
 import os
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "bookmarks.db")
+_default_path = os.path.join(os.path.dirname(__file__), "..", "data", "bookmarks.db")
+DB_PATH = os.environ.get("BOOKMARK_DB_PATH", _default_path)
 
 
 def init_db(db_path: str = DB_PATH):
