@@ -100,11 +100,14 @@ const SmartIframe = (() => {
             <h3>${requiresLogin ? 'Login Required' : 'Unable to Load'}</h3>
             <p>${escapeHtml(message)}</p>
             <p class="text-muted text-xs">${escapeHtml(title)}</p>
-            <button class="btn btn-primary" onclick="window.open('${escapeAttr(url)}', '_blank')">
+            <button class="btn btn-primary" data-open-url>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
                 Open in New Window
             </button>
         `;
+        card.querySelector('[data-open-url]').addEventListener('click', () => {
+            window.open(url, '_blank');
+        });
         container.appendChild(card);
     }
 
@@ -112,10 +115,6 @@ const SmartIframe = (() => {
         const div = document.createElement('div');
         div.textContent = str;
         return div.innerHTML;
-    }
-
-    function escapeAttr(str) {
-        return str.replace(/'/g, "\\'").replace(/"/g, '&quot;');
     }
 
     return { init, createIframeContainer };

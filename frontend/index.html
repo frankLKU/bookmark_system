@@ -15,7 +15,7 @@
 
   <!-- Factory Workspace Bar -->
   <div id="workspace-bar">
-    <!-- Workspace chips rendered by JS -->
+    <div class="workspace-chips"></div>
   </div>
 
   <!-- App Container: Sidebar + Main Viewport -->
@@ -79,7 +79,7 @@
     <!-- Main Viewport -->
     <main id="main-viewport">
       <div id="tab-bar">
-        <!-- Tabs rendered by JS -->
+        <div class="tab-list"></div>
       </div>
 
       <div id="content-area">
@@ -106,19 +106,19 @@
   <div id="context-menu" class="hidden"></div>
 
   <!-- JavaScript Modules -->
-  <script src="js/utils/helpers.js" defer></script>
   <script src="js/api.js" defer></script>
   <script src="js/store.js" defer></script>
   <script src="js/router.js" defer></script>
+  <script src="js/utils/fuzzy-search.js" defer></script>
+  <script src="js/utils/onetab-parser.js" defer></script>
+  <script src="js/utils/keyboard-nav.js" defer></script>
+  <script src="js/utils/theme.js" defer></script>
   <script src="js/components/workspace-bar.js" defer></script>
-  <script src="js/components/sidebar-search.js" defer></script>
-  <script src="js/components/category-group.js" defer></script>
-  <script src="js/components/bookmark-item.js" defer></script>
+  <script src="js/components/sidebar.js" defer></script>
   <script src="js/components/tab-bar.js" defer></script>
   <script src="js/components/smart-iframe.js" defer></script>
   <script src="js/components/split-view.js" defer></script>
   <script src="js/components/modal.js" defer></script>
-  <script src="js/components/context-menu.js" defer></script>
   <script src="js/app.js" defer></script>
 </body>
 </html>

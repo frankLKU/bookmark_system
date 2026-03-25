@@ -86,10 +86,12 @@ def update_category(category_id: str, category: CategoryUpdate, db=Depends(get_d
         db.commit()
 
     row = db.execute("SELECT * FROM categories WHERE id = ?", (category_id,)).fetchone()
+    count = db.execute("SELECT COUNT(*) FROM bookmarks WHERE category_id = ?", (category_id,)).fetchone()[0]
     return {
         "data": {
             "id": row["id"], "name": row["name"], "display_order": row["display_order"],
             "created_at": row["created_at"], "updated_at": row["updated_at"],
+            "bookmark_count": count,
         },
         "message": "Category updated successfully", "success": True,
     }

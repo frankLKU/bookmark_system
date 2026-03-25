@@ -311,7 +311,7 @@ const Modals = (() => {
             return;
         }
 
-        const bookmarks = resp.data || [];
+        const bookmarks = resp.data?.preview || resp.data || [];
         renderPreviewTable(bookmarks);
 
         document.getElementById('preview-section').classList.remove('hidden');
@@ -325,7 +325,7 @@ const Modals = (() => {
         const { categories } = Store.getState();
 
         const categoryOptions = `<option value="">— None —</option>` +
-            categories.map(c => `<option value="${escapeHtml(c.id)}">${escapeHtml(c.name)}</option>`).join('');
+            categories.map(c => `<option value="${escapeHtml(c.name)}">${escapeHtml(c.name)}</option>`).join('');
 
         tbody.innerHTML = bookmarks.map((bm, i) => `
             <tr data-index="${i}">
@@ -333,7 +333,7 @@ const Modals = (() => {
                 <td><input type="text" value="${escapeHtml(bm.url || '')}" data-field="url" class="preview-field"></td>
                 <td><input type="text" value="${escapeHtml((bm.tags || []).join(', '))}" data-field="tags" class="preview-field"></td>
                 <td>
-                    <select data-field="category_id" class="preview-field" style="height:28px; font-size:var(--text-xs); padding:0 var(--space-1); border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--bg-primary); color:var(--text-primary); width:100%;">
+                    <select data-field="category" class="preview-field" style="height:28px; font-size:var(--text-xs); padding:0 var(--space-1); border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--bg-primary); color:var(--text-primary); width:100%;">
                         ${categoryOptions}
                     </select>
                 </td>
@@ -717,8 +717,8 @@ const Modals = (() => {
                 const [moved] = reordered.splice(_dragSrcIndex, 1);
                 reordered.splice(destIndex, 0, moved);
 
-                // Build new order array: list of { id, sort_order }
-                const order = reordered.map((cat, i) => ({ id: cat.id, sort_order: i }));
+                // Build new order array: list of category IDs in desired order
+                const order = reordered.map(cat => cat.id);
 
                 _dragSrcIndex = null;
 
