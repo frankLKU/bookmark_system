@@ -6,6 +6,11 @@
 
 document.addEventListener('DOMContentLoaded', async () => {
     // ------------------------------------------------------------------
+    // Bootstrap: apply theme before anything renders to avoid flash
+    // ------------------------------------------------------------------
+    if (typeof Theme !== 'undefined' && Theme.init) Theme.init();
+
+    // ------------------------------------------------------------------
     // Bootstrap: load data
     // ------------------------------------------------------------------
     await Store.loadCategories();
@@ -18,6 +23,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (typeof WorkspaceBar !== 'undefined' && WorkspaceBar.init) WorkspaceBar.init();
     if (typeof Sidebar !== 'undefined' && Sidebar.init) Sidebar.init();
     if (typeof TabBar !== 'undefined' && TabBar.init) TabBar.init();
+    if (typeof SmartIframe !== 'undefined' && SmartIframe.init) SmartIframe.init();
+    if (typeof SplitView !== 'undefined' && SplitView.init) SplitView.init();
+    if (typeof KeyboardNav !== 'undefined' && KeyboardNav.init) KeyboardNav.init();
+    if (typeof Router !== 'undefined' && Router.init) Router.init();
+
+    // ------------------------------------------------------------------
+    // Health check: run once immediately, then every 60 s
+    // ------------------------------------------------------------------
+    if (typeof API !== 'undefined') {
+        API.triggerHealthCheck();
+        setInterval(() => API.triggerHealthCheck(), 60000);
+    }
 
     // ------------------------------------------------------------------
     // Wire sidebar footer buttons → Modals
