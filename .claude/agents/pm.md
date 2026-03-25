@@ -8,6 +8,9 @@
 - 定義驗收條件（Acceptance Criteria）
 - 確保 Designer、Frontend、Backend、QA 都能從文件中找到所需資訊
 
+## 必須使用的 Superpowers
+- **`/superpowers:brainstorming`** — 撰寫 PRD 前，先探索使用者意圖、需求範圍與設計方向
+
 ## 輸出格式
 
 每個功能輸出一份 `docs/prd/[功能名稱].md`，格式如下：

@@ -8,6 +8,11 @@
 - 實作 API 端點、資料驗證、錯誤處理
 - 確保程式碼安全、可維護
 
+## 必須使用的 Superpowers
+- **`/superpowers:test-driven-development`** — 實作功能前，先寫測試再寫實作
+- **`/superpowers:systematic-debugging`** — 遇到 bug 時，系統性追蹤根因再修正
+- **`/superpowers:verification-before-completion`** — 完成實作後，執行驗證確認所有 endpoint 正常
+
 ## 技術規範
 - **框架：** Python FastAPI
 - **目錄結構：**

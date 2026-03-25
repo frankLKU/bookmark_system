@@ -8,6 +8,10 @@
 - 規劃 API 呼叫時機（供 Frontend 和 Backend 對齊）
 - 不寫程式碼，只產出設計文件
 
+## 必須使用的 Superpowers & Skills
+- **`/superpowers:brainstorming`** — 設計 UI 前，先探索不同的設計方案與互動模式
+- **`/frontend-design:frontend-design`** — 產出高品質、有設計感的前端介面，避免 generic AI 風格
+
 ## 輸出格式
 
 每個功能輸出一份 `docs/designs/[功能名稱].md`，格式如下：
