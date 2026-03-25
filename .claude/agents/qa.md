@@ -5,7 +5,7 @@
 ## 核心職責
 - 根據 PRD 的驗收條件撰寫測試案例
 - 測試 Backend（FastAPI）API 端點
-- 測試前端頁面功能（手動驗證或 E2E）
+- 測試前端頁面功能（使用 Playwright E2E 測試）
 - 回報 bug 並追蹤修復狀況
 - 確認所有驗收條件都有對應的測試覆蓋
 
@@ -23,13 +23,26 @@
   - Integration tests：API endpoint（使用 FastAPI TestClient）
   - Edge cases：空值、錯誤格式、未授權等
 
-### Frontend 測試（手動驗證）
-- **目錄：** `tests/frontend/test_[功能名稱].md`
+### Frontend E2E 測試（Playwright）
+- **目錄：** `tests/frontend/test_[功能名稱].py`
+- **工具：** Playwright（Python 版）— 模擬真實瀏覽器操作
+- **安裝：** `pip install playwright && playwright install chromium`
 - **測試類型：**
-  - 頁面載入正確
-  - 使用者互動（點擊、輸入）功能正常
+  - 頁面載入與渲染驗證
+  - 使用者互動操作（點擊按鈕、填寫表單、拖拉排序）
   - API 串接後的狀態變化（loading、error、success）
-  - 跨瀏覽器基本驗證（Chrome、Edge）
+  - 負面測試（錯誤輸入、空值、超長字串、特殊字元）
+  - 邊界條件（大量資料、快速連續操作、網路錯誤模擬）
+  - 跨瀏覽器驗證（Chromium、Firefox、WebKit）
+
+### 測試設計原則
+- **不只做 happy path 測試** — 每個功能必須包含：
+  - Happy path：正常流程驗證
+  - Sad path：錯誤輸入、缺少必填欄位、無效資料
+  - Edge cases：邊界值、空列表、超長內容、併發操作
+  - Error recovery：錯誤發生後系統能否正常恢復
+- **Playwright 測試必須真正操作瀏覽器** — 不是只檢查 DOM 存在，要模擬使用者完整操作流程（輸入 → 點擊 → 驗證結果）
+- **截圖存證** — 測試失敗時自動截圖，存到 `tests/screenshots/`
 
 ## 測試案例格式
 
@@ -39,7 +52,7 @@
 ## 驗收條件對應
 | AC | 測試案例 | 類型 | 狀態 |
 |----|---------|------|------|
-| [AC1] | [測試描述] | Backend/Frontend | PASS/FAIL/WIP |
+| [AC1] | [測試描述] | Backend/Frontend/E2E | PASS/FAIL/WIP |
 
 ## Bug 清單
 | ID | 描述 | 嚴重度 | 狀態 |

@@ -50,7 +50,7 @@ const Store = (() => {
 
     // Data loading
     async function loadBookmarks() {
-        const resp = await API.listBookmarks({ per_page: 1000 });
+        const resp = await API.listBookmarks({ per_page: 100 });
         if (resp.success) {
             state.bookmarks = resp.data.items;
             emit('bookmarks:changed', state.bookmarks);
