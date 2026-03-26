@@ -2,13 +2,13 @@
 
 ## Goal
 
-Replace iframe-based bookmark viewing with pywebview desktop application. Main dashboard window loads existing HTML/CSS/JS frontend, each bookmark opens in a child pywebview window that directly loads the target URL (no proxy needed). Deployable with `pip install -r requirements.txt && python main.py`.
+Replace iframe-based bookmark viewing with pywebview desktop application. Main dashboard window loads existing HTML/CSS/JS frontend, each bookmark opens in a child pywebview window that directly loads the target URL (no proxy needed). Deployable with `pip install -r requirements.txt && python desktop_app.py`.
 
 ## Architecture
 
 ```
 ┌─────────────────────────────────────┐
-│  python main.py                     │
+│  python desktop_app.py              │
 │  ┌───────────────┐ ┌─────────────┐  │
 │  │ FastAPI Server │ │  pywebview   │  │
 │  │ (background   │ │  Main Window │  │
@@ -40,31 +40,49 @@ Replace iframe-based bookmark viewing with pywebview desktop application. Main d
 - **macOS**: WebKit renderer (native)
 - **Deployment target**: Windows with only Python available
 
+## Threading Model
+
+pywebview **must** run on the main thread. FastAPI/uvicorn runs in a daemon background thread.
+
+- **Main thread**: `webview.start()` — blocks, owns the GUI event loop
+- **Background thread**: uvicorn serving FastAPI on `localhost:8765`
+- **JS bridge calls**: Execute in separate background threads managed by pywebview
+- **Window creation from bridge**: Must be dispatched to main thread. Use `webview.create_window()` which is documented as thread-safe after `start()` — pywebview internally dispatches to the GUI thread.
+- **`evaluate_js` from bridge**: Thread-safe per pywebview docs, but must guard against calling on destroyed windows.
+
 ## Components
 
 ### 1. `desktop_app.py` — Application Entry Point
 
 Responsibilities:
-- Start FastAPI/uvicorn in a background thread on `localhost:8765`
-- Wait for server to be ready (poll health endpoint)
+- Check for single instance (try binding port 8765, fail fast if taken)
+- Start FastAPI/uvicorn in a daemon background thread on `localhost:8765`
+- Wait for server readiness: poll `http://localhost:8765/api/v1/bookmarks` with max 20 retries at 0.5s intervals (10s timeout). Show error dialog and exit on failure.
 - Create main pywebview window loading `http://localhost:8765`
 - Expose `BookmarkBridge` JS API class to the main window
-- On main window close: close all child windows and shut down server
+- On main window close: close all child windows, signal uvicorn shutdown
 
 ### 2. `BookmarkBridge` — JS Bridge API Class
 
 Exposed to JavaScript as `window.pywebview.api`:
 
 ```python
+import json
+import webview
+
 class BookmarkBridge:
     def __init__(self):
         self._windows = {}  # tab_id -> webview.Window
+        self._main_window = None  # Injected after main window creation
+
+    def set_main_window(self, window):
+        """Called by desktop_app.py after creating the main window."""
+        self._main_window = window
 
     def open_bookmark(self, tab_id, url, title):
         """Open a child window for a bookmark. If already open, focus it."""
         if tab_id in self._windows:
-            self._windows[tab_id].show()
-            self._windows[tab_id].restore()
+            self._focus_window(tab_id)
             return
         window = webview.create_window(
             title, url,
@@ -76,14 +94,12 @@ class BookmarkBridge:
     def close_bookmark(self, tab_id):
         """Close a child window."""
         if tab_id in self._windows:
-            self._windows[tab_id].destroy()
-            del self._windows[tab_id]
+            window = self._windows.pop(tab_id)
+            window.destroy()
 
     def focus_bookmark(self, tab_id):
         """Bring a child window to front."""
-        if tab_id in self._windows:
-            self._windows[tab_id].show()
-            self._windows[tab_id].restore()
+        self._focus_window(tab_id)
 
     def close_all(self):
         """Close all child windows."""
@@ -91,36 +107,129 @@ class BookmarkBridge:
             w.destroy()
         self._windows.clear()
 
+    def _focus_window(self, tab_id):
+        """Focus a child window. Uses minimize+restore trick for reliable foregrounding."""
+        if tab_id in self._windows:
+            w = self._windows[tab_id]
+            w.show()
+            w.minimize()
+            w.restore()
+
     def _on_child_closed(self, tab_id):
-        """Called when user closes a child window manually."""
+        """Called when user closes a child window manually.
+        Runs in a background thread (pywebview event handler).
+        """
         self._windows.pop(tab_id, None)
         # Notify main window JS to remove the tab
-        main_window.evaluate_js(f"Store.closeTab('{tab_id}')")
+        # Guard: main window may already be destroyed during app shutdown
+        try:
+            if self._main_window:
+                self._main_window.evaluate_js(
+                    f"if(typeof Store!=='undefined')Store.closeTab({json.dumps(tab_id)})"
+                )
+        except Exception:
+            pass  # Main window already destroyed
 ```
 
 ### 3. `smart-window.js` — Replaces `smart-iframe.js`
 
-Instead of creating iframes, calls the JS bridge:
+**Critical**: `window.pywebview.api` is NOT available at `DOMContentLoaded`. It becomes available after the `pywebviewready` DOM event fires. All bridge calls must either:
+- Be triggered by user interaction (click handlers fire after init), or
+- Wait for `pywebviewready` event
 
 ```javascript
-function openBookmark(tabId, url, title) {
-    if (window.pywebview) {
-        window.pywebview.api.open_bookmark(tabId, url, title);
-    } else {
-        // Fallback for browser-based development
-        window.open(url, '_blank');
-    }
-}
-```
+const SmartWindow = (() => {
+    let _bridgeReady = false;
 
-The content area in the main window shows a simple status card ("Opened in separate window") instead of an iframe.
+    function init() {
+        // pywebview bridge becomes available after this event
+        window.addEventListener('pywebviewready', () => {
+            _bridgeReady = true;
+        });
+        // Also check if already ready (race condition guard)
+        if (window.pywebview && window.pywebview.api) {
+            _bridgeReady = true;
+        }
+
+        Store.on('activeTab:changed', render);
+        Store.on('tabs:changed', render);
+        render();
+    }
+
+    function openBookmark(tabId, url, title) {
+        if (_bridgeReady && window.pywebview) {
+            window.pywebview.api.open_bookmark(tabId, url, title);
+        } else {
+            // Fallback for browser-based development
+            window.open(url, '_blank');
+        }
+    }
+
+    function focusBookmark(tabId) {
+        if (_bridgeReady && window.pywebview) {
+            window.pywebview.api.focus_bookmark(tabId);
+        }
+    }
+
+    function closeBookmark(tabId) {
+        if (_bridgeReady && window.pywebview) {
+            window.pywebview.api.close_bookmark(tabId);
+        }
+    }
+
+    function render() {
+        // Show status card in content area (not iframe)
+        const contentArea = document.getElementById('content-area');
+        const emptyState = document.getElementById('empty-state');
+        if (!contentArea) return;
+
+        contentArea.querySelectorAll('.window-status-card').forEach(el => el.remove());
+
+        const { tabs, activeTabId } = Store.getState();
+        const activeTab = tabs.find(t => t.id === activeTabId);
+
+        if (!activeTab) {
+            if (emptyState) emptyState.classList.remove('hidden');
+            return;
+        }
+
+        if (emptyState) emptyState.classList.add('hidden');
+
+        // Show status card instead of iframe
+        const card = document.createElement('div');
+        card.className = 'window-status-card';
+        card.innerHTML = `
+            <h3>${escapeHtml(activeTab.title)}</h3>
+            <p>Opened in separate window</p>
+            <button class="btn btn-primary" data-action="focus">Focus Window</button>
+            <button class="btn btn-ghost" data-action="close">Close Window</button>
+        `;
+        card.querySelector('[data-action="focus"]').addEventListener('click', () => {
+            focusBookmark(activeTab.id);
+        });
+        card.querySelector('[data-action="close"]').addEventListener('click', () => {
+            Store.closeTab(activeTab.id);
+            closeBookmark(activeTab.id);
+        });
+        contentArea.appendChild(card);
+    }
+
+    function escapeHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    return { init, openBookmark, focusBookmark, closeBookmark };
+})();
+```
 
 ### 4. Tab Bar Behavior Changes
 
-- Click tab → calls `focus_bookmark(tab_id)` to bring child window to front
-- Close tab → calls `close_bookmark(tab_id)` to close child window
-- When user closes child window directly → `_on_child_closed` fires → removes tab from Store
-- Main window content area shows which bookmark is "active" but actual content is in child window
+- Click tab → calls `SmartWindow.focusBookmark(tab_id)` to bring child window to front
+- Close tab → calls `SmartWindow.closeBookmark(tab_id)` to close child window
+- When user closes child window directly → `_on_child_closed` fires → `Store.closeTab()` removes tab
+- Main window content area shows status card for active tab
 
 ## Files Changed
 
@@ -131,43 +240,45 @@ The content area in the main window shows a simple status card ("Opened in separ
 ### Modified Files
 - `frontend/index.html` — replace smart-iframe.js script tag with smart-window.js, remove split-view.js
 - `frontend/js/store.js` — add `closeTab(tabId)` method callable from Python bridge
-- `frontend/js/components/tab-bar.js` — use smart-window API instead of iframe
-- `frontend/js/app.js` — remove SplitView init, update SmartIframe references
-- `frontend/css/components.css` — remove iframe-related styles, add status card styles
-- `requirements.txt` — add pywebview
-- `backend/requirements.txt` — add pywebview
+- `frontend/js/components/tab-bar.js` — use SmartWindow API instead of SmartIframe
+- `frontend/js/app.js` — remove SplitView init, replace SmartIframe with SmartWindow
+- `frontend/css/components.css` — remove iframe-related styles, add window-status-card styles
+- `requirements.txt` (root) — add pywebview
+- `backend/app/main.py` — remove proxy router include
 
 ### Removed Files
 - `frontend/js/components/smart-iframe.js` — replaced by smart-window.js
 - `frontend/js/components/split-view.js` — no longer needed
-- `backend/app/routers/proxy.py` — no longer needed (child windows load URLs directly)
+- `backend/app/routers/proxy.py` — no longer needed
+- `tests/tibdp/backend/test_api_proxy.py` — no longer needed
+
+### NOT Modified
+- `backend/requirements.txt` — pywebview is a desktop dependency, NOT a backend dependency (would break server/CI environments)
 
 ### Unchanged
-- `backend/app/routers/bookmarks.py` — all CRUD unchanged
-- `backend/app/routers/categories.py` — unchanged
-- `backend/app/routers/import_export.py` — unchanged
-- `backend/app/routers/health.py` — unchanged (still checks URL health via httpx)
-- `backend/app/database.py` — unchanged
-- `backend/app/models.py` — unchanged
-- `frontend/js/api.js` — unchanged
-- `frontend/js/router.js` — unchanged
-- `frontend/js/components/sidebar.js` — unchanged
-- `frontend/js/components/modal.js` — unchanged
-- `frontend/js/components/workspace-bar.js` — unchanged
+- `backend/app/routers/bookmarks.py`, `categories.py`, `import_export.py`, `health.py`
+- `backend/app/database.py`, `backend/app/models.py`
+- `frontend/js/api.js`, `frontend/js/router.js`
+- `frontend/js/components/sidebar.js`, `modal.js`, `workspace-bar.js`
 - `frontend/js/utils/*` — all unchanged
-- All CSS except iframe-related styles — unchanged
+- All CSS except iframe-related styles
 
 ## Startup Flow
 
 ```
 python desktop_app.py
   │
-  ├─ Start uvicorn in background thread (port 8765)
-  ├─ Poll http://localhost:8765/api/v1/bookmarks until ready
+  ├─ Try binding port 8765 (fail fast if already in use)
+  ├─ Start uvicorn in daemon background thread (port 8765)
+  ├─ Poll http://localhost:8765/api/v1/bookmarks
+  │    max 20 retries × 0.5s = 10s timeout
+  │    on failure: show error dialog, sys.exit(1)
+  ├─ Create BookmarkBridge instance
   ├─ Create main pywebview window → http://localhost:8765
-  │    └─ JS Bridge: BookmarkBridge exposed as window.pywebview.api
+  │    js_api=bridge
+  ├─ bridge.set_main_window(main_window)
   └─ webview.start()  ← blocks until main window closed
-       └─ On close: destroy all child windows, stop server
+       └─ On close: bridge.close_all(), signal uvicorn shutdown
 ```
 
 ## Content Area UX
@@ -177,22 +288,29 @@ When a bookmark is opened:
 - Main window content area shows a status card:
   - Bookmark title
   - "Opened in separate window"
-  - "Focus Window" button (calls focus_bookmark)
-  - "Close" button (calls close_bookmark)
+  - "Focus Window" button → `focus_bookmark()`
+  - "Close Window" button → `close_bookmark()`
 
 When no tabs are open:
 - Empty state (same as current)
 
+## Known Limitations
+
+- **Window focus**: `minimize()` + `restore()` trick works reliably on Windows. On macOS, bringing a window to foreground may not work consistently due to OS restrictions. This is a known pywebview limitation.
+- **Vercel/browser mode**: The web frontend still works in a regular browser with `window.open()` fallback, but this is a development convenience, not a supported deployment target.
+
 ## Error Handling
 
-- **Server fails to start**: Show error dialog, exit
-- **Child window URL fails to load**: pywebview shows its own error page (browser engine handles it)
+- **Port 8765 already in use**: Show error dialog "Another instance is already running", exit
+- **Server fails to start within 10s**: Show error dialog with details, exit
+- **Child window URL fails to load**: pywebview's browser engine shows its own error page
 - **Main window closed**: All child windows destroyed, server stopped, process exits
+- **Bridge calls on destroyed windows**: Wrapped in try/except, silently ignored
 
 ## Dependencies
 
 ```
-# requirements.txt
+# requirements.txt (root — desktop app)
 fastapi>=0.110.0
 uvicorn>=0.27.0
 pydantic>=2.0.0
@@ -200,16 +318,18 @@ httpx>=0.27.0
 pywebview>=5.0
 ```
 
+```
+# backend/requirements.txt (server-only — NO pywebview)
+fastapi>=0.110.0
+uvicorn>=0.27.0
+pydantic>=2.0.0
+httpx>=0.27.0
+```
+
 ## Testing
 
-- Backend tests: unchanged (64 tests)
+- Backend tests: unchanged (64 tests, minus 3 proxy tests = 61 tests)
 - Frontend unit tests: unchanged (13 tests)
-- Remove proxy-related tests (test_api_proxy.py)
+- Remove `tests/tibdp/backend/test_api_proxy.py`
 - New: manual testing of pywebview window lifecycle
 - Future: Playwright E2E tests for the desktop app
-
-## Migration Notes
-
-- Vercel deployment no longer applicable (this is a desktop app)
-- `api/index.py` and `vercel.json` can remain for web-only fallback
-- The HTML/JS frontend still works in a regular browser — smart-window.js has a `window.open()` fallback when pywebview is not detected
