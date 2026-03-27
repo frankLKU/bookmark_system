@@ -30,18 +30,24 @@ const TabBar = (() => {
             </div>`;
         }).join('');
 
-        // Click to switch tab
+        // Click to switch tab — also focus the child window
         tabList.querySelectorAll('.tab').forEach(el => {
             el.addEventListener('click', (e) => {
                 if (e.target.closest('.tab-close')) return;
                 Store.setActiveTab(el.dataset.tabId);
+                if (typeof SmartWindow !== 'undefined') {
+                    SmartWindow.focusBookmark(el.dataset.tabId);
+                }
             });
         });
 
-        // Close button
+        // Close button — also close the child window
         tabList.querySelectorAll('.tab-close').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
+                if (typeof SmartWindow !== 'undefined') {
+                    SmartWindow.closeBookmark(btn.dataset.tabId);
+                }
                 Store.closeTab(btn.dataset.tabId);
             });
         });
