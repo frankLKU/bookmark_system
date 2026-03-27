@@ -129,14 +129,6 @@ body {
   overflow: hidden;
 }
 
-#content-area iframe {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  border: none;
-}
 
 /* Empty State — centered in content area */
 #empty-state {
