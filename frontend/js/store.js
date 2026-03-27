@@ -3,7 +3,7 @@ const Store = (() => {
     const state = {
         bookmarks: [],
         categories: [],
-        tabs: [],           // { id, url, title, isCombined, urls }
+        tabs: [],           // { id, url, title, bookmarkId }
         activeTabId: null,
         activeWorkspace: null,  // null = ALL, or factory tag string
         searchQuery: '',
@@ -153,7 +153,6 @@ const Store = (() => {
             url: bookmark.url,
             title: bookmark.title,
             bookmarkId: bookmark.id,
-            isCombined: false,
         };
         state.tabs.push(tab);
         state.activeTabId = tab.id;
@@ -176,34 +175,6 @@ const Store = (() => {
     function setActiveTab(tabId) {
         state.activeTabId = tabId;
         emit('activeTab:changed', state.activeTabId);
-    }
-
-    function openCombinedTab(bookmark1, bookmark2) {
-        const tab = {
-            id: 'tab-' + Date.now(),
-            url: bookmark1.url,
-            title: `${bookmark1.title} + ${bookmark2.title}`,
-            bookmarkId: bookmark1.id,
-            isCombined: true,
-            urls: [bookmark1.url, bookmark2.url],
-            titles: [bookmark1.title, bookmark2.title],
-        };
-        state.tabs.push(tab);
-        state.activeTabId = tab.id;
-        emit('tabs:changed', state.tabs);
-        emit('activeTab:changed', state.activeTabId);
-    }
-
-    function exitCombinedView(tabId) {
-        const tab = state.tabs.find(t => t.id === tabId);
-        if (tab && tab.isCombined) {
-            tab.isCombined = false;
-            tab.title = tab.titles[0];
-            delete tab.urls;
-            delete tab.titles;
-            emit('tabs:changed', state.tabs);
-            emit('activeTab:changed', state.activeTabId);
-        }
     }
 
     // Workspace filter
@@ -244,7 +215,7 @@ const Store = (() => {
         addBookmark, updateBookmark, deleteBookmark,
         addCategory, updateCategory, deleteCategory, reorderCategories,
         importBookmarks,
-        openTab, closeTab, setActiveTab, openCombinedTab, exitCombinedView,
+        openTab, closeTab, setActiveTab,
         setWorkspace, setSearch,
         toggleCategoryCollapse, setKeyboardNavIndex,
     };
