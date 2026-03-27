@@ -116,7 +116,14 @@ const Sidebar = (() => {
             item.addEventListener('click', () => {
                 const id = item.dataset.bookmarkId;
                 const bookmark = Store.getState().bookmarks.find(b => b.id === id);
-                if (bookmark) Store.openTab(bookmark);
+                if (bookmark) {
+                    Store.openTab(bookmark);
+                    // Open in pywebview child window
+                    const { activeTabId } = Store.getState();
+                    if (typeof SmartWindow !== 'undefined') {
+                        SmartWindow.openBookmark(activeTabId, bookmark.url, bookmark.title);
+                    }
+                }
             });
 
             item.addEventListener('contextmenu', (e) => {
