@@ -102,6 +102,7 @@ def delete_category(category_id: str, db=Depends(get_db)):
     existing = db.execute("SELECT id FROM categories WHERE id = ?", (category_id,)).fetchone()
     if not existing:
         raise HTTPException(404, detail="Category not found")
+    db.execute("UPDATE bookmarks SET category_id = NULL WHERE category_id = ?", (category_id,))
     db.execute("DELETE FROM categories WHERE id = ?", (category_id,))
     db.commit()
     return {"data": None, "message": "Category deleted successfully", "success": True}

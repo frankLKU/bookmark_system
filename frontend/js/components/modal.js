@@ -324,8 +324,13 @@ const Modals = (() => {
         const tbody = document.getElementById('preview-tbody');
         const { categories } = Store.getState();
 
-        const categoryOptions = `<option value="">— None —</option>` +
-            categories.map(c => `<option value="${escapeHtml(c.name)}">${escapeHtml(c.name)}</option>`).join('');
+        function buildCategoryOptions(selectedCategory) {
+            return `<option value="">— None —</option>` +
+                categories.map(c => {
+                    const sel = selectedCategory && c.name.toLowerCase() === selectedCategory.toLowerCase() ? ' selected' : '';
+                    return `<option value="${escapeHtml(c.name)}"${sel}>${escapeHtml(c.name)}</option>`;
+                }).join('');
+        }
 
         tbody.innerHTML = bookmarks.map((bm, i) => `
             <tr data-index="${i}">
@@ -334,7 +339,7 @@ const Modals = (() => {
                 <td><input type="text" value="${escapeHtml((bm.tags || []).join(', '))}" data-field="tags" class="preview-field"></td>
                 <td>
                     <select data-field="category" class="preview-field" style="height:28px; font-size:var(--text-xs); padding:0 var(--space-1); border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--bg-primary); color:var(--text-primary); width:100%;">
-                        ${categoryOptions}
+                        ${buildCategoryOptions(bm.category)}
                     </select>
                 </td>
             </tr>
@@ -361,7 +366,7 @@ const Modals = (() => {
                 if (field === 'tags') {
                     bm.tags = f.value.split(',').map(t => t.trim()).filter(Boolean);
                 } else {
-                    bm[field] = f.value.trim() || null;
+                    bm[field] = field === 'category' ? f.value.trim() : (f.value.trim() || null);
                 }
             });
             if (bm.title || bm.url) bookmarks.push(bm);
