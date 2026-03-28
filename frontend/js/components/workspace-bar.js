@@ -24,7 +24,7 @@ const WorkspaceBar = (() => {
         let html = `<button class="workspace-chip${current === null ? ' active' : ''}" data-tag="">ALL</button>`;
         tags.forEach(tag => {
             const active = tag === current ? ' active' : '';
-            html += `<button class="workspace-chip${active}" data-tag="${escapeHtml(tag)}">${escapeHtml(tag.toUpperCase())}</button>`;
+            html += `<button class="workspace-chip${active}" data-tag="${escapeHtml(tag)}">${escapeHtml(tag.toUpperCase())}<span class="open-in-chrome" data-chrome-tag="${escapeHtml(tag)}" title="Open all in Chrome">&#9654;</span></button>`;
         });
         // Add tag button
         html += `<button class="workspace-chip workspace-add-tag" title="Add tag to a bookmark">+</button>`;
@@ -51,6 +51,17 @@ const WorkspaceBar = (() => {
         if (addBtn) {
             addBtn.addEventListener('click', () => showAddTagPrompt());
         }
+
+        // Open in Chrome buttons
+        container.querySelectorAll('.open-in-chrome').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation(); // Don't trigger chip filter
+                const tag = btn.dataset.chromeTag;
+                if (typeof Store !== 'undefined' && Store.openInChrome) {
+                    Store.openInChrome(tag);
+                }
+            });
+        });
     }
 
     function showTagContextMenu(e, tag) {
