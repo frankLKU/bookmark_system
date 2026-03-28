@@ -1,5 +1,6 @@
 """WebSocket endpoint for Chrome Extension communication."""
 
+import asyncio
 import json
 import logging
 
@@ -18,6 +19,7 @@ class ChromeConnectionManager:
         self._ws: WebSocket | None = None
         self._tabs: list[dict] = []
         self._on_focus_search = None  # callback
+        self._ping_task: asyncio.Task | None = None
 
     @property
     def connected(self) -> bool:
@@ -34,17 +36,47 @@ class ChromeConnectionManager:
                 await self._ws.close()
             except Exception:
                 pass
+            self._cancel_ping()
         self._ws = websocket
+        self._start_ping()
 
     def disconnect(self):
+        self._cancel_ping()
         self._ws = None
+
+    def _start_ping(self):
+        """Start periodic ping to keep WebSocket alive."""
+        self._ping_task = asyncio.ensure_future(self._ping_loop())
+
+    def _cancel_ping(self):
+        if self._ping_task is not None:
+            self._ping_task.cancel()
+            self._ping_task = None
+
+    async def _ping_loop(self):
+        """Send ping every 15 seconds to keep connection alive."""
+        try:
+            while self._ws is not None:
+                await asyncio.sleep(15)
+                if self._ws is not None:
+                    try:
+                        await self._ws.send_json({"type": "ping"})
+                    except Exception:
+                        self.disconnect()
+                        break
+        except asyncio.CancelledError:
+            pass
 
     async def send_command(self, cmd_type: str, data: dict):
         """Send a command to the Chrome Extension."""
         if self._ws is None:
             logger.warning("No Chrome Extension connected, cannot send: %s", cmd_type)
             return
-        await self._ws.send_json({"type": cmd_type, "data": data})
+        try:
+            await self._ws.send_json({"type": cmd_type, "data": data})
+        except Exception as e:
+            logger.error("Failed to send command %s: %s", cmd_type, e)
+            self.disconnect()
 
     def handle_tabs_updated(self, data: dict):
         self._tabs = data.get("tabs", [])
@@ -63,8 +95,6 @@ chrome_manager = ChromeConnectionManager()
 
 @ws_router.websocket("/ws/chrome")
 async def chrome_websocket(websocket: WebSocket):
-    # accept() must be called before connect() — accept hands control of the
-    # socket to the ASGI app, then connect() registers it with the manager.
     await websocket.accept()
     await chrome_manager.connect(websocket)
     logger.info("Chrome Extension connected")
@@ -85,10 +115,14 @@ async def chrome_websocket(websocket: WebSocket):
                 chrome_manager.handle_tabs_updated(msg.get("data", {}))
 
             elif msg_type == "focus_search":
+                logger.info("Received focus_search from Chrome Extension")
                 chrome_manager.fire_focus_callback()
 
             elif msg_type == "connected":
                 logger.info("Chrome Extension handshake received")
+
+            elif msg_type == "pong":
+                pass  # keepalive response
 
             else:
                 logger.warning("Unknown message type: %s", msg_type)
@@ -106,6 +140,7 @@ class OpenTabGroupRequest(BaseModel):
     tag: str
     urls: list[str]
     color: str | None = None
+    focusUrl: str | None = None
 
 
 class TabIdRequest(BaseModel):
@@ -114,6 +149,11 @@ class TabIdRequest(BaseModel):
 
 class TagRequest(BaseModel):
     tag: str
+
+
+class OpenSingleTabRequest(BaseModel):
+    url: str
+    tag: str | None = None
 
 
 # --- REST endpoints: frontend → backend → extension ---
@@ -137,6 +177,18 @@ async def open_tab_group(req: OpenTabGroupRequest):
         "tag": req.tag,
         "urls": req.urls,
         "color": req.color,
+        "focusUrl": req.focusUrl,
+    })
+    return {"success": True, "data": None, "message": "Command sent"}
+
+
+@rest_router.post("/chrome/open-single-tab")
+async def open_single_tab(req: OpenSingleTabRequest):
+    if not chrome_manager.connected:
+        return {"success": False, "data": None, "message": "Chrome Extension not connected"}
+    await chrome_manager.send_command("open_single_tab", {
+        "url": req.url,
+        "tag": req.tag,
     })
     return {"success": True, "data": None, "message": "Command sent"}
 

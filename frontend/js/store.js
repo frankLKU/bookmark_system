@@ -227,6 +227,61 @@ const Store = (() => {
         });
     }
 
+    async function openBookmarkInChrome(bookmark) {
+        // 1. Check if this URL is already open in a Chrome tab
+        const existing = state.chromeTabs.find(t =>
+            t.url === bookmark.url || t.url === bookmark.url + '/'
+        );
+        if (existing) {
+            await switchChromeTab(existing.id);
+            API.updateAccess(bookmark.id);
+            return;
+        }
+
+        // 2. Not open yet — find the bookmark's first tag and open the whole group
+        const tag = (bookmark.tags && bookmark.tags.length > 0)
+            ? bookmark.tags[0].toLowerCase()
+            : null;
+
+        if (tag) {
+            // Check if the group is already open (has tabs with that groupName)
+            const groupOpen = state.chromeTabs.some(t =>
+                t.groupName && t.groupName.toLowerCase() === tag
+            );
+
+            if (groupOpen) {
+                // Group is open but this specific URL isn't — open it in the same window
+                await fetch('/api/v1/chrome/open-single-tab', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ tag, url: bookmark.url }),
+                });
+            } else {
+                // Open the full group with this URL as the focus target
+                await fetch('/api/v1/chrome/open-tab-group', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ tag, urls: getTagUrls(tag), focusUrl: bookmark.url }),
+                });
+            }
+        } else {
+            // No tag — open single tab in a default window
+            await fetch('/api/v1/chrome/open-single-tab', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: bookmark.url }),
+            });
+        }
+
+        API.updateAccess(bookmark.id);
+    }
+
+    function getTagUrls(tag) {
+        return state.bookmarks
+            .filter(b => b.tags && b.tags.some(t => t.toLowerCase() === tag))
+            .map(b => b.url);
+    }
+
     async function switchChromeTab(tabId) {
         await fetch('/api/v1/chrome/switch-tab', {
             method: 'POST',
@@ -276,7 +331,7 @@ const Store = (() => {
         openTab, closeTab, setActiveTab,
         setWorkspace, setSearch,
         toggleCategoryCollapse, setKeyboardNavIndex,
-        openInChrome, switchChromeTab, closeChromeTab, closeChromeGroup,
+        openInChrome, openBookmarkInChrome, switchChromeTab, closeChromeTab, closeChromeGroup,
         loadChromeTabs,
     };
 })();

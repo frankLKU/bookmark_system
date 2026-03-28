@@ -45,6 +45,10 @@ async function getScreenLayout() {
 
 // --- WebSocket Connection ---
 function connect() {
+    if (ws && (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.OPEN)) {
+        return; // Already connected or connecting
+    }
+
     try {
         ws = new WebSocket(WS_URL);
     } catch (e) {
@@ -97,7 +101,10 @@ async function handleCommand(msg) {
 
     switch (type) {
         case 'open_tab_group':
-            await openTabGroup(data.tag, data.urls, data.color);
+            await openTabGroup(data.tag, data.urls, data.color, data.focusUrl);
+            break;
+        case 'open_single_tab':
+            await openSingleTab(data.url, data.tag);
             break;
         case 'switch_tab':
             await switchTab(data.tabId);
@@ -108,13 +115,16 @@ async function handleCommand(msg) {
         case 'close_group':
             await closeGroup(data.tag);
             break;
+        case 'ping':
+            send('pong');
+            break;
         default:
             console.warn('[TIBDP] Unknown command:', type);
     }
 }
 
 // --- Tab Group Operations ---
-async function openTabGroup(tag, urls, color) {
+async function openTabGroup(tag, urls, color, focusUrl) {
     if (!urls || urls.length === 0) return;
 
     const tagLower = tag.toLowerCase();
@@ -123,12 +133,22 @@ async function openTabGroup(tag, urls, color) {
     const existingWindowId = tagToWindowId[tagLower];
     if (existingWindowId !== undefined) {
         try {
-            const win = await chrome.windows.get(existingWindowId);
-            // Window exists — focus it and activate first tab
+            await chrome.windows.get(existingWindowId);
+            // Window exists — focus it
             await chrome.windows.update(existingWindowId, { focused: true });
-            const tabs = await chrome.tabs.query({ windowId: existingWindowId });
-            if (tabs.length > 0) {
-                await chrome.tabs.update(tabs[0].id, { active: true });
+
+            // If focusUrl specified, find and activate that tab
+            if (focusUrl) {
+                const tabs = await chrome.tabs.query({ windowId: existingWindowId });
+                const match = tabs.find(t => t.url === focusUrl || t.url === focusUrl + '/');
+                if (match) {
+                    await chrome.tabs.update(match.id, { active: true });
+                }
+            } else {
+                const tabs = await chrome.tabs.query({ windowId: existingWindowId });
+                if (tabs.length > 0) {
+                    await chrome.tabs.update(tabs[0].id, { active: true });
+                }
             }
             console.log('[TIBDP] Focused existing window for tag:', tag);
             return;
@@ -139,10 +159,14 @@ async function openTabGroup(tag, urls, color) {
         }
     }
 
+    // Determine which URL to open first (focusUrl or first in list)
+    const firstUrl = focusUrl && urls.includes(focusUrl) ? focusUrl : urls[0];
+    const otherUrls = urls.filter(u => u !== firstUrl);
+
     // Create a new window positioned on the right 80% of screen
     const layout = await getScreenLayout();
     const newWindow = await chrome.windows.create({
-        url: urls[0],
+        url: firstUrl,
         left: layout.left,
         top: layout.top,
         width: layout.width,
@@ -154,9 +178,9 @@ async function openTabGroup(tag, urls, color) {
 
     // Create remaining tabs in the new window
     const tabIds = [newWindow.tabs[0].id];
-    for (let i = 1; i < urls.length; i++) {
+    for (const url of otherUrls) {
         const tab = await chrome.tabs.create({
-            url: urls[i],
+            url,
             windowId: newWindow.id,
             active: false,
         });
@@ -169,9 +193,51 @@ async function openTabGroup(tag, urls, color) {
     await chrome.tabGroups.update(groupId, { title: tag.toUpperCase(), color: groupColor });
     tagToGroupId[tagLower] = groupId;
 
-    // Activate first tab
-    await chrome.tabs.update(tabIds[0], { active: true });
+    // First tab (focusUrl) is already active
+    sendTabsUpdate();
+}
 
+async function openSingleTab(url, tag) {
+    if (!url) return;
+
+    if (tag) {
+        const tagLower = tag.toLowerCase();
+        const windowId = tagToWindowId[tagLower];
+
+        if (windowId !== undefined) {
+            try {
+                await chrome.windows.get(windowId);
+                // Open tab in the existing tag window
+                const tab = await chrome.tabs.create({
+                    url,
+                    windowId,
+                    active: true,
+                });
+                // Add to the group if exists
+                const groupId = tagToGroupId[tagLower];
+                if (groupId !== undefined) {
+                    await chrome.tabs.group({ tabIds: [tab.id], groupId });
+                }
+                await chrome.windows.update(windowId, { focused: true });
+                sendTabsUpdate();
+                return;
+            } catch (e) {
+                delete tagToWindowId[tagLower];
+                delete tagToGroupId[tagLower];
+            }
+        }
+    }
+
+    // No tag window found — open in a new window on the right 80%
+    const layout = await getScreenLayout();
+    await chrome.windows.create({
+        url,
+        left: layout.left,
+        top: layout.top,
+        width: layout.width,
+        height: layout.height,
+        focused: true,
+    });
     sendTabsUpdate();
 }
 
@@ -227,7 +293,6 @@ async function closeGroup(tag) {
     }
 
     delete tagToGroupId[tagLower];
-    // tabs.onRemoved / windows.onRemoved will trigger sendTabsUpdate
 }
 
 // --- Tab State Reporting ---
@@ -236,7 +301,6 @@ async function sendTabsUpdate() {
         const tabs = await chrome.tabs.query({});
         const tabData = [];
 
-        // Collect unique groupIds that need name resolution
         const groupIds = new Set(tabs.filter(t => t.groupId !== -1).map(t => t.groupId));
         const groupNames = {};
         for (const gid of groupIds) {
@@ -277,7 +341,6 @@ async function rebuildTagMap() {
             }
         }
 
-        // Rebuild window map: for each known tag, find which window it's in
         tagToWindowId = {};
         for (const [tagLower, groupId] of Object.entries(tagToGroupId)) {
             const tabs = await chrome.tabs.query({ groupId });

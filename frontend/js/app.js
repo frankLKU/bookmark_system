@@ -22,8 +22,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     // ------------------------------------------------------------------
     if (typeof WorkspaceBar !== 'undefined' && WorkspaceBar.init) WorkspaceBar.init();
     if (typeof Sidebar !== 'undefined' && Sidebar.init) Sidebar.init();
-    if (typeof TabBar !== 'undefined' && TabBar.init) TabBar.init();
-    if (typeof SmartWindow !== 'undefined' && SmartWindow.init) SmartWindow.init();
     if (typeof ChromeTabs !== 'undefined' && ChromeTabs.init) ChromeTabs.init();
     if (typeof KeyboardNav !== 'undefined' && KeyboardNav.init) KeyboardNav.init();
     if (typeof Router !== 'undefined' && Router.init) Router.init();
