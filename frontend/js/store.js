@@ -10,6 +10,8 @@ const Store = (() => {
         collapsedCategories: new Set(),
         healthStatus: {},   // { bookmark_id: { is_healthy, status_code, checked_at } }
         keyboardNavIndex: -1,
+        chromeTabs: [],         // tabs from Chrome Extension via REST polling
+        chromeConnected: false, // is Chrome Extension WebSocket connected?
     };
 
     // Event system
@@ -209,6 +211,62 @@ const Store = (() => {
         emit('keyboardNav:changed', index);
     }
 
+    // --- Chrome Extension commands (via REST → backend → WebSocket → extension) ---
+
+    async function openInChrome(tag) {
+        const bookmarks = state.bookmarks.filter(b =>
+            b.tags && b.tags.some(t => t.toLowerCase() === tag.toLowerCase())
+        );
+        const urls = bookmarks.map(b => b.url);
+        if (urls.length === 0) return;
+
+        await fetch('/api/v1/chrome/open-tab-group', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tag, urls }),
+        });
+    }
+
+    async function switchChromeTab(tabId) {
+        await fetch('/api/v1/chrome/switch-tab', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tabId }),
+        });
+    }
+
+    async function closeChromeTab(tabId) {
+        await fetch('/api/v1/chrome/close-tab', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tabId }),
+        });
+    }
+
+    async function closeChromeGroup(tag) {
+        await fetch('/api/v1/chrome/close-group', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tag }),
+        });
+    }
+
+    async function loadChromeTabs() {
+        try {
+            const resp = await fetch('/api/v1/chrome/tabs');
+            const data = await resp.json();
+            if (data.success) {
+                state.chromeTabs = data.data.tabs;
+                state.chromeConnected = data.data.connected;
+                emit('chromeTabs:changed', state.chromeTabs);
+                emit('chromeConnected:changed', state.chromeConnected);
+            }
+        } catch (e) {
+            state.chromeConnected = false;
+            emit('chromeConnected:changed', false);
+        }
+    }
+
     return {
         on, emit, getState, getFilteredBookmarks,
         loadBookmarks, loadCategories, loadHealthStatus,
@@ -218,5 +276,7 @@ const Store = (() => {
         openTab, closeTab, setActiveTab,
         setWorkspace, setSearch,
         toggleCategoryCollapse, setKeyboardNavIndex,
+        openInChrome, switchChromeTab, closeChromeTab, closeChromeGroup,
+        loadChromeTabs,
     };
 })();
