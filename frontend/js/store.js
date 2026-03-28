@@ -227,11 +227,22 @@ const Store = (() => {
         });
     }
 
+    function normalizeUrl(url) {
+        // Strip trailing slash and protocol for comparison
+        return (url || '').replace(/\/+$/, '').replace(/^https?:\/\//, '').toLowerCase();
+    }
+
+    function findChromeTabByUrl(url) {
+        const norm = normalizeUrl(url);
+        return state.chromeTabs.find(t => normalizeUrl(t.url) === norm);
+    }
+
     async function openBookmarkInChrome(bookmark) {
+        // Refresh chrome tabs before checking to avoid stale data
+        await loadChromeTabs();
+
         // 1. Check if this URL is already open in a Chrome tab
-        const existing = state.chromeTabs.find(t =>
-            t.url === bookmark.url || t.url === bookmark.url + '/'
-        );
+        const existing = findChromeTabByUrl(bookmark.url);
         if (existing) {
             await switchChromeTab(existing.id);
             API.updateAccess(bookmark.id);

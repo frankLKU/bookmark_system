@@ -24,13 +24,13 @@ function getColorForTag(tag) {
 }
 
 // --- Screen Layout ---
-// Menubar occupies left 20%, Chrome windows occupy right 80%
+// Menubar occupies left 10%, Chrome windows occupy right 90%
 async function getScreenLayout() {
     try {
         const displays = await chrome.system.display.getInfo();
         const primary = displays[0];
         const { width, height } = primary.bounds;
-        const menubarWidth = Math.round(width * 0.2);
+        const menubarWidth = Math.round(width * 0.1);
         return {
             left: menubarWidth,
             top: 0,
@@ -38,8 +38,8 @@ async function getScreenLayout() {
             height: height,
         };
     } catch (e) {
-        // Fallback for common screen sizes
-        return { left: 688, top: 0, width: 2752, height: 1440 };
+        // Fallback for 3440x1440 ultrawide
+        return { left: 344, top: 0, width: 3096, height: 1440 };
     }
 }
 

@@ -139,7 +139,7 @@ def main():
         screen_width = 3440
         screen_height = 1440
 
-    menubar_width = int(screen_width * 0.2)
+    menubar_width = int(screen_width * 0.1)
 
     main_window = webview.create_window(
         "TIBDP — Bookmark Dashboard",
