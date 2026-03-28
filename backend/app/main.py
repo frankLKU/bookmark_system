@@ -6,7 +6,7 @@ from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 
 from app.database import init_db
-from app.routers import bookmarks, categories, import_export, health
+from app.routers import bookmarks, categories, import_export, health, websocket
 
 
 @asynccontextmanager
@@ -28,6 +28,7 @@ app.include_router(bookmarks.router, prefix="/api/v1", tags=["bookmarks"])
 app.include_router(categories.router, prefix="/api/v1", tags=["categories"])
 app.include_router(import_export.router, prefix="/api/v1", tags=["import_export"])
 app.include_router(health.router, prefix="/api/v1", tags=["health"])
+app.include_router(websocket.router, tags=["websocket"])
 
 
 
