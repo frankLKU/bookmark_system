@@ -58,10 +58,9 @@ const Modals = (() => {
 
         const { categories } = Store.getState();
 
-        const categoryOptions = categories.map(c =>
-            `<option value="${escapeHtml(c.id)}" ${isEdit && bookmark.category_id === c.id ? 'selected' : ''}>
-                ${escapeHtml(c.name)}
-            </option>`
+        const categoryName = isEdit && bookmark.category_name ? bookmark.category_name : '';
+        const categoryDatalist = categories.map(c =>
+            `<option value="${escapeHtml(c.name)}">`
         ).join('');
 
         const tagsValue = isEdit && bookmark.tags ? bookmark.tags.join(', ') : '';
@@ -93,11 +92,11 @@ const Modals = (() => {
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label" for="bm-category">Category</label>
-                    <select id="bm-category" class="form-select">
-                        <option value="">— None —</option>
-                        ${categoryOptions}
-                    </select>
+                    <label class="form-label" for="bm-category">Category <span style="color:var(--text-muted); font-weight:400">(type or pick)</span></label>
+                    <input type="text" id="bm-category" class="form-input" list="category-list"
+                        placeholder="e.g. Monitoring, CI/CD"
+                        value="${escapeHtml(categoryName)}">
+                    <datalist id="category-list">${categoryDatalist}</datalist>
                 </div>
 
                 <div class="form-group">
@@ -106,12 +105,6 @@ const Modals = (() => {
                         value="${escapeHtml(tagsValue)}">
                 </div>
 
-                <div class="form-group">
-                    <label class="form-checkbox">
-                        <input type="checkbox" id="bm-combined" ${isEdit && bookmark.is_combined ? 'checked' : ''}>
-                        <span>Combined view (split-screen with another bookmark)</span>
-                    </label>
-                </div>
             </div>
             <div class="modal-footer">
                 <button class="btn btn-ghost" id="modal-cancel-btn">Cancel</button>
@@ -131,7 +124,6 @@ const Modals = (() => {
         const urlEl = document.getElementById('bm-url');
         const categoryEl = document.getElementById('bm-category');
         const tagsEl = document.getElementById('bm-tags');
-        const combinedEl = document.getElementById('bm-combined');
         const errorEl = document.getElementById('modal-error');
         const saveBtn = document.getElementById('modal-save-btn');
 
@@ -156,12 +148,28 @@ const Modals = (() => {
             ? tagsRaw.split(',').map(t => t.trim()).filter(Boolean)
             : [];
 
+        // Resolve category name → category_id (find or create)
+        const categoryName = categoryEl.value.trim();
+        let categoryId = null;
+        if (categoryName) {
+            const { categories } = Store.getState();
+            const existing = categories.find(c => c.name.toLowerCase() === categoryName.toLowerCase());
+            if (existing) {
+                categoryId = existing.id;
+            } else {
+                // Create new category
+                const catResp = await Store.addCategory({ name: categoryName });
+                if (catResp && catResp.success && catResp.data) {
+                    categoryId = catResp.data.id;
+                }
+            }
+        }
+
         const data = {
             title: titleVal,
             url: urlVal,
-            category_id: categoryEl.value || null,
+            category_id: categoryId,
             tags,
-            is_combined: combinedEl.checked,
         };
 
         saveBtn.disabled = true;
