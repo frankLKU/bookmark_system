@@ -30,11 +30,21 @@ CATEGORY_KEYWORDS = {
 FACTORY_TAG_RE = re.compile(r"f\d+[a-z]?", re.IGNORECASE)
 
 
-def _detect_factory_tags(url: str) -> list[str]:
-    """Extract factory identifiers like f18, f12, f14a from URL."""
+def _detect_factory_tags(url: str, title: str = "") -> list[str]:
+    """Extract factory identifiers like f18, f12, f14a from URL and title."""
     hostname = urlparse(url).hostname or url
-    matches = FACTORY_TAG_RE.findall(hostname)
-    return [m.lower() for m in matches]
+    # Search in both hostname and title
+    text = f"{hostname} {title}"
+    matches = FACTORY_TAG_RE.findall(text)
+    # Deduplicate while preserving order
+    seen = set()
+    result = []
+    for m in matches:
+        lower = m.lower()
+        if lower not in seen:
+            seen.add(lower)
+            result.append(lower)
+    return result
 
 
 def _detect_category(url: str) -> str:
@@ -76,7 +86,7 @@ def _parse_onetab_line(line: str, temp_id: int) -> dict | None:
     if not title:
         title = _derive_title(url)
 
-    tags = _detect_factory_tags(url)
+    tags = _detect_factory_tags(url, title)
     category = _detect_category(url)
 
     return {
