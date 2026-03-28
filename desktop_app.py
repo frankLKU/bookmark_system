@@ -2,9 +2,11 @@
 
 Starts FastAPI in a background thread, then opens a pywebview main window
 pointing at the local dashboard. Bookmarks open in the system browser.
+Chrome Extension communicates via WebSocket for tab group control.
 """
 
 import os
+import platform
 import socket
 import sys
 import threading
@@ -65,6 +67,53 @@ def _wait_for_server(max_retries=20, interval=0.5):
 
 
 # ---------------------------------------------------------------------------
+# Focus handling (thread-safe)
+# ---------------------------------------------------------------------------
+
+def _bring_to_front(window):
+    """Bring pywebview window to front and focus search box.
+
+    Must be called from a separate thread (not the main GUI thread or the
+    asyncio event loop thread). pywebview's evaluate_js dispatches to the
+    main thread internally.
+    """
+    try:
+        window.show()
+        if platform.system() == "Darwin":
+            try:
+                from AppKit import NSApp  # pyobjc
+                NSApp.activateIgnoringOtherApps_(True)
+            except ImportError:
+                pass  # pyobjc not installed, window.show() is best effort
+        window.evaluate_js("document.querySelector('#search-input')?.focus()")
+    except Exception:
+        pass
+
+
+def _setup_focus_callback(window):
+    """Register the focus callback with the WebSocket manager.
+
+    The callback is invoked from the asyncio event loop thread (WebSocket
+    handler), so we dispatch _bring_to_front in a separate thread to avoid
+    blocking the event loop and to let pywebview dispatch GUI calls safely.
+    """
+    backend_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "backend")
+    if backend_dir not in sys.path:
+        sys.path.insert(0, backend_dir)
+
+    from app.routers.websocket import chrome_manager
+
+    def on_focus_search():
+        threading.Thread(
+            target=_bring_to_front,
+            args=(window,),
+            daemon=True,
+        ).start()
+
+    chrome_manager.set_focus_callback(on_focus_search)
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -91,7 +140,11 @@ def main():
     def on_closed():
         server.should_exit = True
 
+    def on_shown():
+        _setup_focus_callback(main_window)
+
     main_window.events.closed += on_closed
+    main_window.events.shown += on_shown
     webview.start()
 
 
