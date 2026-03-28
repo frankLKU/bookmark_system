@@ -67,3 +67,78 @@ class TestWebSocketEndpoint:
             ws.send_json({"type": "focus_search"})
 
         assert len(called) == 1
+
+
+class TestChromeRestEndpoints:
+    def test_get_tabs_no_extension(self, client):
+        """Get tabs when no extension is connected."""
+        resp = client.get("/api/v1/chrome/tabs")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["success"] is True
+        assert data["data"]["connected"] is False
+        assert data["data"]["tabs"] == []
+
+    def test_get_tabs_with_extension(self, client):
+        """Get tabs after extension sends tabs_updated."""
+        from app.routers.websocket import chrome_manager
+
+        with client.websocket_connect("/ws/chrome") as ws:
+            ws.send_json({
+                "type": "tabs_updated",
+                "data": {"tabs": [{"id": 1, "url": "https://example.com", "title": "Example", "groupId": -1, "groupName": ""}]}
+            })
+            resp = client.get("/api/v1/chrome/tabs")
+            assert resp.status_code == 200
+            data = resp.json()
+            assert data["data"]["connected"] is True
+            assert len(data["data"]["tabs"]) == 1
+
+    def test_open_tab_group_command(self, client):
+        """Send open_tab_group command via REST."""
+        with client.websocket_connect("/ws/chrome") as ws:
+            resp = client.post("/api/v1/chrome/open-tab-group", json={
+                "tag": "f14",
+                "urls": ["https://example.com"]
+            })
+            assert resp.status_code == 200
+            assert resp.json()["success"] is True
+            msg = ws.receive_json()
+            assert msg["type"] == "open_tab_group"
+            assert msg["data"]["tag"] == "f14"
+            assert msg["data"]["urls"] == ["https://example.com"]
+
+    def test_switch_tab_command(self, client):
+        """Send switch_tab command via REST."""
+        with client.websocket_connect("/ws/chrome") as ws:
+            resp = client.post("/api/v1/chrome/switch-tab", json={"tabId": 42})
+            assert resp.status_code == 200
+            msg = ws.receive_json()
+            assert msg["type"] == "switch_tab"
+            assert msg["data"]["tabId"] == 42
+
+    def test_close_tab_command(self, client):
+        """Send close_tab command via REST."""
+        with client.websocket_connect("/ws/chrome") as ws:
+            resp = client.post("/api/v1/chrome/close-tab", json={"tabId": 42})
+            assert resp.status_code == 200
+            msg = ws.receive_json()
+            assert msg["type"] == "close_tab"
+
+    def test_close_group_command(self, client):
+        """Send close_group command via REST."""
+        with client.websocket_connect("/ws/chrome") as ws:
+            resp = client.post("/api/v1/chrome/close-group", json={"tag": "f14"})
+            assert resp.status_code == 200
+            msg = ws.receive_json()
+            assert msg["type"] == "close_group"
+
+    def test_command_when_not_connected(self, client):
+        """Commands when no extension connected return success=false."""
+        resp = client.post("/api/v1/chrome/open-tab-group", json={
+            "tag": "f14",
+            "urls": ["https://example.com"]
+        })
+        assert resp.status_code == 200
+        assert resp.json()["success"] is False
+        assert "not connected" in resp.json()["message"].lower()

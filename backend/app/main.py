@@ -28,7 +28,8 @@ app.include_router(bookmarks.router, prefix="/api/v1", tags=["bookmarks"])
 app.include_router(categories.router, prefix="/api/v1", tags=["categories"])
 app.include_router(import_export.router, prefix="/api/v1", tags=["import_export"])
 app.include_router(health.router, prefix="/api/v1", tags=["health"])
-app.include_router(websocket.router, tags=["websocket"])
+app.include_router(websocket.ws_router, tags=["websocket"])
+app.include_router(websocket.rest_router, prefix="/api/v1", tags=["chrome"])
 
 
 
