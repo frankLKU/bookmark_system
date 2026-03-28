@@ -1,40 +1,20 @@
 const SmartWindow = (() => {
-    let _bridgeReady = false;
-
     function init() {
-        // pywebview bridge becomes available after this event
-        window.addEventListener('pywebviewready', () => {
-            _bridgeReady = true;
-        });
-        // Also check if already ready (race condition guard)
-        if (window.pywebview && window.pywebview.api) {
-            _bridgeReady = true;
-        }
-
         Store.on('activeTab:changed', render);
         Store.on('tabs:changed', render);
         render();
     }
 
     function openBookmark(tabId, url, title) {
-        if (_bridgeReady && window.pywebview) {
-            window.pywebview.api.open_bookmark(tabId, url, title);
-        } else {
-            // Fallback for browser-based development
-            window.open(url, '_blank');
-        }
+        window.open(url, '_blank');
     }
 
     function focusBookmark(tabId) {
-        if (_bridgeReady && window.pywebview) {
-            window.pywebview.api.focus_bookmark(tabId);
-        }
+        // No-op: bookmarks open in system browser
     }
 
     function closeBookmark(tabId) {
-        if (_bridgeReady && window.pywebview) {
-            window.pywebview.api.close_bookmark(tabId);
-        }
+        // No-op: bookmarks open in system browser
     }
 
     function render() {
@@ -54,21 +34,19 @@ const SmartWindow = (() => {
 
         if (emptyState) emptyState.classList.add('hidden');
 
-        // Show status card instead of iframe
         const card = document.createElement('div');
         card.className = 'window-status-card';
         card.innerHTML = `
             <h3>${escapeHtml(activeTab.title)}</h3>
-            <p>Opened in separate window</p>
-            <button class="btn btn-primary" data-action="focus">Focus Window</button>
-            <button class="btn btn-ghost" data-action="close">Close Window</button>
+            <p>Opened in browser</p>
+            <button class="btn btn-primary" data-action="open">Open Again</button>
+            <button class="btn btn-ghost" data-action="close">Close Tab</button>
         `;
-        card.querySelector('[data-action="focus"]').addEventListener('click', () => {
-            focusBookmark(activeTab.id);
+        card.querySelector('[data-action="open"]').addEventListener('click', () => {
+            window.open(activeTab.url, '_blank');
         });
         card.querySelector('[data-action="close"]').addEventListener('click', () => {
             Store.closeTab(activeTab.id);
-            closeBookmark(activeTab.id);
         });
         contentArea.appendChild(card);
     }

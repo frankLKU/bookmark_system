@@ -56,8 +56,9 @@ body {
 #sidebar {
   display: flex;
   flex-direction: column;
-  width: 320px;
-  min-width: 320px;
+  width: 20%;
+  min-width: 240px;
+  max-width: 360px;
   height: 100%;
   background-color: var(--bg-secondary);
   border-right: 1px solid var(--border);
