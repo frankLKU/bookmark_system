@@ -6,7 +6,8 @@ const RECONNECT_INTERVAL = 3000;
 const TAB_GROUP_COLORS = ['grey','blue','red','yellow','green','pink','purple','cyan','orange'];
 
 let ws = null;
-let tagToGroupId = {};  // All keys stored in lowercase
+let tagToGroupId = {};   // tag(lowercase) → groupId
+let tagToWindowId = {};  // tag(lowercase) → windowId
 
 // --- Hash function for deterministic color assignment ---
 function hashCode(str) {
@@ -20,6 +21,26 @@ function hashCode(str) {
 
 function getColorForTag(tag) {
     return TAB_GROUP_COLORS[hashCode(tag) % TAB_GROUP_COLORS.length];
+}
+
+// --- Screen Layout ---
+// Menubar occupies left 20%, Chrome windows occupy right 80%
+async function getScreenLayout() {
+    try {
+        const displays = await chrome.system.display.getInfo();
+        const primary = displays[0];
+        const { width, height } = primary.bounds;
+        const menubarWidth = Math.round(width * 0.2);
+        return {
+            left: menubarWidth,
+            top: 0,
+            width: width - menubarWidth,
+            height: height,
+        };
+    } catch (e) {
+        // Fallback for common screen sizes
+        return { left: 688, top: 0, width: 2752, height: 1440 };
+    }
 }
 
 // --- WebSocket Connection ---
@@ -96,22 +117,60 @@ async function handleCommand(msg) {
 async function openTabGroup(tag, urls, color) {
     if (!urls || urls.length === 0) return;
 
-    const tabIds = [];
-    for (const url of urls) {
-        const tab = await chrome.tabs.create({ url, active: false });
+    const tagLower = tag.toLowerCase();
+
+    // Check if window for this tag already exists
+    const existingWindowId = tagToWindowId[tagLower];
+    if (existingWindowId !== undefined) {
+        try {
+            const win = await chrome.windows.get(existingWindowId);
+            // Window exists — focus it and activate first tab
+            await chrome.windows.update(existingWindowId, { focused: true });
+            const tabs = await chrome.tabs.query({ windowId: existingWindowId });
+            if (tabs.length > 0) {
+                await chrome.tabs.update(tabs[0].id, { active: true });
+            }
+            console.log('[TIBDP] Focused existing window for tag:', tag);
+            return;
+        } catch (e) {
+            // Window was closed, clean up and create new one
+            delete tagToWindowId[tagLower];
+            delete tagToGroupId[tagLower];
+        }
+    }
+
+    // Create a new window positioned on the right 80% of screen
+    const layout = await getScreenLayout();
+    const newWindow = await chrome.windows.create({
+        url: urls[0],
+        left: layout.left,
+        top: layout.top,
+        width: layout.width,
+        height: layout.height,
+        focused: true,
+    });
+
+    tagToWindowId[tagLower] = newWindow.id;
+
+    // Create remaining tabs in the new window
+    const tabIds = [newWindow.tabs[0].id];
+    for (let i = 1; i < urls.length; i++) {
+        const tab = await chrome.tabs.create({
+            url: urls[i],
+            windowId: newWindow.id,
+            active: false,
+        });
         tabIds.push(tab.id);
     }
 
-    const groupId = await chrome.tabs.group({ tabIds });
+    // Group all tabs in the new window
+    const groupId = await chrome.tabs.group({ tabIds, createProperties: { windowId: newWindow.id } });
     const groupColor = color || getColorForTag(tag);
     await chrome.tabGroups.update(groupId, { title: tag.toUpperCase(), color: groupColor });
-    // Always store with lowercase key for consistent lookup
-    tagToGroupId[tag.toLowerCase()] = groupId;
+    tagToGroupId[tagLower] = groupId;
 
     // Activate first tab
-    if (tabIds.length > 0) {
-        await chrome.tabs.update(tabIds[0], { active: true });
-    }
+    await chrome.tabs.update(tabIds[0], { active: true });
 
     sendTabsUpdate();
 }
@@ -136,7 +195,6 @@ async function closeTab(tabId) {
 }
 
 async function closeGroup(tag) {
-    // Always look up with lowercase key
     const tagLower = tag.toLowerCase();
     let groupId = tagToGroupId[tagLower];
 
@@ -154,16 +212,25 @@ async function closeGroup(tag) {
 
     const tabs = await chrome.tabs.query({ groupId });
     const tabIds = tabs.map(t => t.id);
-    if (tabIds.length > 0) {
+
+    // Close the dedicated window if it exists
+    const windowId = tagToWindowId[tagLower];
+    if (windowId !== undefined) {
+        try {
+            await chrome.windows.remove(windowId);
+        } catch (e) {
+            // Window may already be closed
+        }
+        delete tagToWindowId[tagLower];
+    } else if (tabIds.length > 0) {
         await chrome.tabs.remove(tabIds);
     }
+
     delete tagToGroupId[tagLower];
-    // tabs.onRemoved will trigger sendTabsUpdate
+    // tabs.onRemoved / windows.onRemoved will trigger sendTabsUpdate
 }
 
 // --- Tab State Reporting ---
-// Note: Sends tabs from ALL windows. Spec says "only manage most recently
-// focused window" but showing all windows is acceptable for now.
 async function sendTabsUpdate() {
     try {
         const tabs = await chrome.tabs.query({});
@@ -199,8 +266,7 @@ async function sendTabsUpdate() {
     }
 }
 
-// --- Rebuild tag→groupId map on reconnect ---
-// All keys stored lowercase for consistent lookup
+// --- Rebuild maps on reconnect ---
 async function rebuildTagMap() {
     try {
         const groups = await chrome.tabGroups.query({});
@@ -208,6 +274,15 @@ async function rebuildTagMap() {
         for (const g of groups) {
             if (g.title) {
                 tagToGroupId[g.title.toLowerCase()] = g.id;
+            }
+        }
+
+        // Rebuild window map: for each known tag, find which window it's in
+        tagToWindowId = {};
+        for (const [tagLower, groupId] of Object.entries(tagToGroupId)) {
+            const tabs = await chrome.tabs.query({ groupId });
+            if (tabs.length > 0) {
+                tagToWindowId[tagLower] = tabs[0].windowId;
             }
         }
     } catch (e) {
@@ -223,9 +298,22 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
     if (changeInfo.title || changeInfo.url) sendTabsUpdate();
 });
 
+// Clean up window map when a window is closed
+chrome.windows.onRemoved.addListener((windowId) => {
+    for (const [tag, wid] of Object.entries(tagToWindowId)) {
+        if (wid === windowId) {
+            delete tagToWindowId[tag];
+            delete tagToGroupId[tag];
+            break;
+        }
+    }
+    sendTabsUpdate();
+});
+
 // --- Content Script Message Listener ---
-chrome.runtime.onMessage.addListener((msg) => {
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (msg.type === 'focus_search') {
+        console.log('[TIBDP] Forwarding focus_search to server');
         send('focus_search');
     }
 });

@@ -12,5 +12,6 @@ document.addEventListener('keydown', (e) => {
     if (document.activeElement?.isContentEditable) return;
 
     e.preventDefault();
+    console.log('[TIBDP] "/" pressed, sending focus_search');
     chrome.runtime.sendMessage({ type: 'focus_search' });
 });

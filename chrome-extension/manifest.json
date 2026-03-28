@@ -3,7 +3,7 @@
   "name": "TIBDP Chrome Controller",
   "description": "Controls Chrome tabs and tab groups from TIBDP bookmark manager",
   "version": "1.0",
-  "permissions": ["tabs", "tabGroups", "activeTab"],
+  "permissions": ["tabs", "tabGroups", "activeTab", "system.display"],
   "background": {
     "service_worker": "background.js"
   },

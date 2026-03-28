@@ -130,11 +130,24 @@ def main():
         webview.start()
         sys.exit(1)
 
+    # Position menubar on the left 20% of screen
+    try:
+        screen = webview.screens[0]
+        screen_width = screen.width
+        screen_height = screen.height
+    except Exception:
+        screen_width = 3440
+        screen_height = 1440
+
+    menubar_width = int(screen_width * 0.2)
+
     main_window = webview.create_window(
         "TIBDP — Bookmark Dashboard",
         f"http://{HOST}:{PORT}",
-        width=1400,
-        height=900,
+        x=0,
+        y=0,
+        width=menubar_width,
+        height=screen_height,
     )
 
     def on_closed():
