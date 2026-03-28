@@ -735,3 +735,128 @@
   background-color: var(--bg-primary);
   outline: none;
 }
+
+/* --- Chrome Connection Indicator --- */
+.chrome-status {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: var(--space-2);
+    flex-shrink: 0;
+}
+.chrome-status.connected {
+    background-color: var(--color-success);
+}
+.chrome-status.disconnected {
+    background-color: var(--color-danger);
+}
+
+/* --- Chrome Tab Panel --- */
+.chrome-tabs-panel {
+    border-top: 1px solid var(--color-border);
+    max-height: 40%;
+    overflow-y: auto;
+    flex-shrink: 0;
+}
+.chrome-tabs-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+.chrome-tabs-content {
+    padding: 0 var(--space-2) var(--space-2);
+}
+
+.chrome-group-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-1) var(--space-2);
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    color: var(--color-text-primary);
+    border-radius: var(--radius-sm);
+    margin-bottom: var(--space-1);
+}
+.chrome-group-header .group-color-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: var(--space-1);
+}
+.chrome-group-close {
+    background: none;
+    border: none;
+    color: var(--color-text-tertiary);
+    cursor: pointer;
+    font-size: var(--font-size-xs);
+    padding: 2px 4px;
+    border-radius: var(--radius-sm);
+}
+.chrome-group-close:hover {
+    background-color: var(--color-danger);
+    color: white;
+}
+
+.chrome-tab-item {
+    display: flex;
+    align-items: center;
+    padding: var(--space-1) var(--space-2);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    gap: var(--space-1);
+}
+.chrome-tab-item:hover {
+    background-color: var(--color-bg-hover);
+}
+.chrome-tab-item .tab-title {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.chrome-tab-item .tab-close {
+    background: none;
+    border: none;
+    color: var(--color-text-tertiary);
+    cursor: pointer;
+    font-size: 12px;
+    padding: 0 2px;
+    border-radius: var(--radius-sm);
+    opacity: 0;
+}
+.chrome-tab-item:hover .tab-close {
+    opacity: 1;
+}
+.chrome-tab-item .tab-close:hover {
+    color: var(--color-danger);
+}
+
+/* Open in Chrome button on workspace chips */
+.workspace-chip .open-in-chrome {
+    margin-left: 4px;
+    background: none;
+    border: none;
+    color: var(--color-text-tertiary);
+    cursor: pointer;
+    font-size: 10px;
+    padding: 0 2px;
+    border-radius: var(--radius-sm);
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+}
+.workspace-chip:hover .open-in-chrome {
+    opacity: 1;
+}
+.workspace-chip .open-in-chrome:hover {
+    color: var(--color-accent);
+}

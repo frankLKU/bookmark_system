@@ -15,6 +15,7 @@
 
   <!-- Factory Workspace Bar -->
   <div id="workspace-bar">
+    <span id="chrome-status" class="chrome-status disconnected" title="Chrome Extension not connected"></span>
     <div class="workspace-chips"></div>
   </div>
 
@@ -41,6 +42,16 @@
 
       <div class="sidebar-content" id="sidebar-content">
         <!-- Category groups and bookmark items rendered by JS -->
+      </div>
+
+      <!-- Chrome Tab Panel -->
+      <div id="chrome-tabs-panel" class="chrome-tabs-panel">
+        <div class="chrome-tabs-header">
+          <span class="chrome-tabs-title">Chrome Tabs</span>
+        </div>
+        <div id="chrome-tabs-content" class="chrome-tabs-content">
+          <!-- Rendered by ChromeTabs.js -->
+        </div>
       </div>
 
       <div class="sidebar-footer">
@@ -116,6 +127,7 @@
   <script src="js/components/workspace-bar.js" defer></script>
   <script src="js/components/sidebar.js" defer></script>
   <script src="js/components/tab-bar.js" defer></script>
+  <script src="js/components/chrome-tabs.js" defer></script>
   <script src="js/components/smart-window.js" defer></script>
   <script src="js/components/modal.js" defer></script>
   <script src="js/app.js" defer></script>
