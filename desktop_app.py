@@ -23,15 +23,44 @@ class BookmarkBridge:
     def __init__(self):
         self._windows = {}  # tab_id -> webview.Window
         self._main_window = None
+        self._child_rect = None  # (x, y, width, height) for child windows
 
     def set_main_window(self, window):
         self._main_window = window
+
+    def _calc_child_rect(self):
+        """Calculate child window position: right side of main window."""
+        if self._child_rect:
+            return self._child_rect
+        try:
+            screens = webview.screens
+            screen = screens[0] if screens else None
+            if screen and self._main_window:
+                sw, sh = screen.width, screen.height
+                # Main window is on the left ~35%, child takes right ~65%
+                main_w = int(sw * 0.35)
+                child_x = main_w
+                child_w = sw - main_w
+                child_h = sh - 50  # leave space for taskbar
+                self._child_rect = (child_x, 0, child_w, child_h)
+                # Also resize main window to left portion
+                self._main_window.resize(main_w, child_h)
+                self._main_window.move(0, 0)
+                return self._child_rect
+        except Exception:
+            pass
+        # Fallback: reasonable defaults
+        return (600, 0, 900, 850)
 
     def open_bookmark(self, tab_id, url, title):
         if tab_id in self._windows:
             self._focus_window(tab_id)
             return
-        window = webview.create_window(title, url, width=1200, height=800)
+        cx, cy, cw, ch = self._calc_child_rect()
+        window = webview.create_window(
+            title, url,
+            x=cx, y=cy, width=cw, height=ch,
+        )
         window.events.closed += lambda: self._on_child_closed(tab_id)
         self._windows[tab_id] = window
 
@@ -141,6 +170,7 @@ def main():
         width=1400,
         height=900,
         js_api=bridge,
+        easy_drag=False,
     )
     bridge.set_main_window(main_window)
 
