@@ -1,0 +1,158 @@
+/* ==========================================================================
+   Layout — TIBDP
+   Structural layout for the two-panel bookmark dashboard.
+   ========================================================================== */
+
+/* ---------- Reset & Base ---------- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  margin: 0;
+  font-family: var(--font-family);
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  background-color: var(--bg-primary);
+  overflow: hidden;
+}
+
+/* ---------- Workspace Bar ---------- */
+#workspace-bar {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  width: 100%;
+  min-height: 40px;
+  max-height: 120px;
+  padding: var(--space-2) var(--space-3);
+  gap: var(--space-1);
+  background-color: var(--bg-sidebar);
+  border-bottom: 1px solid var(--border);
+  overflow-y: auto;
+  overflow-x: hidden;
+  z-index: var(--z-tab-bar);
+}
+
+[data-theme="dark"] #workspace-bar {
+  background-color: var(--bg-primary);
+}
+
+/* ---------- App Container ---------- */
+.app-container {
+  display: flex;
+  flex-direction: row;
+  flex: 1;
+  min-height: 0; /* allow flex children to shrink */
+  overflow: hidden;
+}
+
+/* ---------- Sidebar (full-width menubar mode) ---------- */
+#sidebar {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  background-color: var(--bg-secondary);
+  z-index: var(--z-sidebar);
+}
+
+[data-theme="dark"] #sidebar {
+  background-color: #030712;
+}
+
+/* Sidebar Header — fixed top */
+.sidebar-header {
+  flex-shrink: 0;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border);
+}
+
+/* Sidebar Content — scrollable middle */
+.sidebar-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: var(--space-2) 0;
+}
+
+/* Sidebar Footer — fixed bottom */
+.sidebar-footer {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border-top: 1px solid var(--border);
+}
+
+/* ---------- Main Viewport ---------- */
+#main-viewport {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0; /* allow flex child to shrink below content size */
+  position: relative;
+}
+
+/* Tab Bar — fixed top of main viewport */
+#tab-bar {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  height: 40px;
+  min-height: 40px;
+  background-color: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+[data-theme="dark"] #tab-bar {
+  background-color: var(--bg-primary);
+}
+
+/* Content Area — fills remaining space */
+#content-area {
+  flex: 1;
+  position: relative;
+  background-color: var(--bg-primary);
+  overflow: hidden;
+}
+
+
+/* Empty State — centered in content area */
+#empty-state {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ---------- Modal Container ---------- */
+#modal-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: var(--z-modal-backdrop);
+}
+
+/* ---------- Context Menu ---------- */
+#context-menu {
+  position: fixed;
+  z-index: var(--z-context-menu);
+}

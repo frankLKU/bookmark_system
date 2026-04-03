@@ -1,0 +1,5 @@
+.vercel
+.claude_memories/
+__pycache__/
+backend/data/
+scripts/.claude/
