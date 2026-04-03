@@ -124,11 +124,17 @@ def _bring_to_front(window):
             try:
                 import ctypes
                 user32 = ctypes.windll.user32
-                # Find the pywebview window by title
                 hwnd = user32.FindWindowW(None, "TIBDP — Bookmark Dashboard")
                 if hwnd:
-                    # Restore if minimized
+                    # Windows blocks SetForegroundWindow unless the calling
+                    # thread is the foreground thread.  Simulate an Alt press
+                    # to satisfy the OS check, then restore & focus.
+                    VK_MENU = 0x12          # Alt key
+                    KEYEVENTF_EXTENDEDKEY = 0x0001
+                    KEYEVENTF_KEYUP = 0x0002
                     SW_RESTORE = 9
+                    user32.keybd_event(VK_MENU, 0, KEYEVENTF_EXTENDEDKEY, 0)
+                    user32.keybd_event(VK_MENU, 0, KEYEVENTF_EXTENDEDKEY | KEYEVENTF_KEYUP, 0)
                     user32.ShowWindow(hwnd, SW_RESTORE)
                     user32.SetForegroundWindow(hwnd)
             except Exception:
@@ -136,6 +142,7 @@ def _bring_to_front(window):
             window.show()
         else:
             window.show()
+        time.sleep(0.15)  # brief wait for window to reach foreground
         window.evaluate_js("document.querySelector('#search-input')?.focus()")
     except Exception:
         pass
