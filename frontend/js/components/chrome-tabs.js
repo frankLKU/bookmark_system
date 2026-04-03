@@ -16,7 +16,7 @@ const ChromeTabs = (() => {
         const indicator = document.getElementById('chrome-status');
         if (!indicator) return;
         indicator.className = 'chrome-status ' + (connected ? 'connected' : 'disconnected');
-        indicator.title = connected ? 'Chrome Extension connected' : 'Chrome Extension not connected';
+        indicator.title = connected ? 'Chrome connected' : 'Chrome not connected';
     }
 
     function render() {
@@ -26,7 +26,7 @@ const ChromeTabs = (() => {
         const { chromeTabs, chromeConnected } = Store.getState();
 
         if (!chromeConnected) {
-            container.innerHTML = '<div class="chrome-tab-item" style="color:var(--color-text-tertiary);cursor:default;">Extension not connected</div>';
+            container.innerHTML = '<div class="chrome-tab-item" style="color:var(--color-text-tertiary);cursor:default;">Browser not connected</div>';
             return;
         }
 
@@ -40,7 +40,7 @@ const ChromeTabs = (() => {
         const ungrouped = [];
 
         chromeTabs.forEach(tab => {
-            if (tab.groupId !== -1 && tab.groupName) {
+            if (tab.groupName) {
                 if (!groups[tab.groupName]) {
                     groups[tab.groupName] = [];
                 }
@@ -76,7 +76,7 @@ const ChromeTabs = (() => {
         container.querySelectorAll('.chrome-tab-item').forEach(el => {
             el.addEventListener('click', (e) => {
                 if (e.target.closest('.tab-close')) return;
-                const tabId = parseInt(el.dataset.tabId, 10);
+                const tabId = el.dataset.tabId;
                 Store.switchChromeTab(tabId);
             });
         });
@@ -84,7 +84,7 @@ const ChromeTabs = (() => {
         container.querySelectorAll('.tab-close').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                const tabId = parseInt(btn.dataset.tabId, 10);
+                const tabId = btn.dataset.tabId;
                 Store.closeChromeTab(tabId);
             });
         });
