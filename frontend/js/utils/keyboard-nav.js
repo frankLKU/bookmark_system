@@ -147,6 +147,11 @@ const KeyboardNav = (() => {
         chips.forEach((chip, i) => {
             chip.classList.toggle('keyboard-focus', i === tagNavIndex);
         });
+        // Filter sidebar to show this tag's bookmarks
+        if (tagNavIndex >= 0 && tagNavIndex < chips.length) {
+            const tag = chips[tagNavIndex].dataset.tag || null;
+            Store.setWorkspace(tag);
+        }
     }
 
     function activateTagAtIndex() {
@@ -155,12 +160,10 @@ const KeyboardNav = (() => {
         const chip = chips[tagNavIndex];
         const tag = chip.dataset.tag || null;
 
-        // If a specific tag (not ALL), open all its bookmarks in Chrome
+        // Open all bookmarks in this tag group in Chrome
         if (tag) {
             Store.openInChrome(tag);
         }
-        // Also filter the sidebar to this tag
-        Store.setWorkspace(tag);
         resetTagNav();
     }
 
