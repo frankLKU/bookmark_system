@@ -31,10 +31,6 @@ def base_url(app_port):
     return f"http://127.0.0.1:{app_port}"
 
 
-@pytest.fixture(scope="session")
-def ws_url(app_port):
-    return f"ws://127.0.0.1:{app_port}/ws/chrome"
-
 
 @pytest.fixture(scope="session", autouse=True)
 def live_server(app_port, tmp_path_factory):
