@@ -113,21 +113,29 @@ def _setup_global_hotkey(window):
 def _bring_to_front(window):
     """Bring pywebview window to front and focus search box."""
     try:
-        window.show()
         if platform.system() == "Darwin":
             try:
-                from AppKit import NSApp  # pyobjc
+                from AppKit import NSApp, NSApplication
                 NSApp.activateIgnoringOtherApps_(True)
             except ImportError:
                 pass
+            window.show()
         elif platform.system() == "Windows":
             try:
                 import ctypes
-                ctypes.windll.user32.SetForegroundWindow(
-                    ctypes.windll.user32.GetForegroundWindow()
-                )
+                user32 = ctypes.windll.user32
+                # Find the pywebview window by title
+                hwnd = user32.FindWindowW(None, "TIBDP — Bookmark Dashboard")
+                if hwnd:
+                    # Restore if minimized
+                    SW_RESTORE = 9
+                    user32.ShowWindow(hwnd, SW_RESTORE)
+                    user32.SetForegroundWindow(hwnd)
             except Exception:
                 pass
+            window.show()
+        else:
+            window.show()
         window.evaluate_js("document.querySelector('#search-input')?.focus()")
     except Exception:
         pass

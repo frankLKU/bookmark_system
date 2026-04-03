@@ -4,6 +4,13 @@
    ========================================================================== */
 
 /* ---------- Workspace Chips ---------- */
+.workspace-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  align-items: center;
+}
+
 .workspace-chip {
   display: inline-flex;
   align-items: center;

@@ -228,8 +228,13 @@ const Store = (() => {
     }
 
     function normalizeUrl(url) {
-        // Strip trailing slash and protocol for comparison
-        return (url || '').replace(/\/+$/, '').replace(/^https?:\/\//, '').toLowerCase();
+        // Strip trailing slash, protocol, www, and fragment for comparison
+        return (url || '')
+            .replace(/^https?:\/\//, '')
+            .replace(/^www\./, '')
+            .replace(/#.*$/, '')
+            .replace(/\/+$/, '')
+            .toLowerCase();
     }
 
     function findChromeTabByUrl(url) {
