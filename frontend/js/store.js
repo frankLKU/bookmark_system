@@ -228,7 +228,7 @@ const Store = (() => {
     }
 
     function normalizeUrl(url) {
-        // Strip trailing slash, protocol, www, and fragment for comparison
+        // Strip protocol, www, fragment, and trailing slash for comparison
         return (url || '')
             .replace(/^https?:\/\//, '')
             .replace(/^www\./, '')
@@ -237,9 +237,22 @@ const Store = (() => {
             .toLowerCase();
     }
 
+    function normalizeUrlNoQuery(url) {
+        // Strip query params too — for fuzzy matching after exact match fails
+        return normalizeUrl(url).replace(/\?.*$/, '');
+    }
+
     function findChromeTabByUrl(url) {
         const norm = normalizeUrl(url);
-        return state.chromeTabs.find(t => normalizeUrl(t.url) === norm);
+        // Pass 1: exact match (after normalizing protocol/www/fragment/slash)
+        const exact = state.chromeTabs.find(t => normalizeUrl(t.url) === norm);
+        if (exact) return exact;
+        // Pass 2: match ignoring query params (handles redirects adding/removing params)
+        const normNoQ = normalizeUrlNoQuery(url);
+        if (normNoQ) {
+            return state.chromeTabs.find(t => normalizeUrlNoQuery(t.url) === normNoQ);
+        }
+        return null;
     }
 
     async function openBookmarkInChrome(bookmark) {
