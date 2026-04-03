@@ -212,6 +212,8 @@ class ChromeBrowserManager:
         self._browser.on("disconnected", lambda: self._on_browser_disconnected())
         self._restart_failures = 0
         logger.info("Chromium browser started")
+        # Start periodic storage state export
+        asyncio.ensure_future(self._periodic_save_storage())
 
     async def _stop_browser(self):
         # Save storage state from first available context
@@ -246,6 +248,17 @@ class ChromeBrowserManager:
                 return
             except Exception:
                 pass
+
+    async def _periodic_save_storage(self):
+        """Save storage state every 5 minutes."""
+        try:
+            while True:
+                await asyncio.sleep(300)  # 5 minutes
+                if self._browser and self._browser.is_connected():
+                    await self._save_storage_state()
+                    logger.debug("Storage state saved periodically")
+        except asyncio.CancelledError:
+            pass
 
     async def _get_tabs(self) -> list[dict]:
         tabs = []
