@@ -112,6 +112,24 @@ class ChromeBrowserManager:
         except Exception:
             return []
 
+    def open_tab_group(self, tag: str, urls: list[str], focus_url: str | None = None):
+        """Open a group of URLs in a new window for the given tag."""
+        if not self.connected or not urls:
+            return
+        future = asyncio.run_coroutine_threadsafe(
+            self._open_tab_group(tag, urls, focus_url), self._loop
+        )
+        future.result(timeout=15)
+
+    def open_single_tab(self, url: str, tag: str | None = None):
+        """Open a single tab, optionally in an existing tag window."""
+        if not self.connected or not url:
+            return
+        future = asyncio.run_coroutine_threadsafe(
+            self._open_single_tab(url, tag), self._loop
+        )
+        future.result(timeout=10)
+
     # --- Internal async methods (run on dedicated loop) ---
 
     async def _start_browser(self):
@@ -203,3 +221,144 @@ class ChromeBrowserManager:
             # Playwright disconnect event may fire from any thread —
             # use run_coroutine_threadsafe to be safe across threads
             asyncio.run_coroutine_threadsafe(self._start_browser(), self._loop)
+
+    async def _get_or_create_context(self, tag: str):
+        """Get existing context for tag, or create a new one."""
+        tag_lower = tag.lower()
+        ctx = self._tag_contexts.get(tag_lower)
+        if ctx is not None:
+            try:
+                # Verify context is still alive by checking pages
+                _ = ctx.pages
+                return ctx
+            except Exception:
+                del self._tag_contexts[tag_lower]
+                del self._tag_window_ids[tag_lower]
+
+        # Create new context, loading storage state if available
+        kwargs = {}
+        if os.path.isfile(self._storage_path):
+            kwargs["storage_state"] = self._storage_path
+
+        try:
+            ctx = await self._browser.new_context(**kwargs)
+        except Exception:
+            # Storage state may be corrupt — delete and retry without it
+            if "storage_state" in kwargs:
+                logger.warning("Storage state corrupt, deleting and retrying")
+                try:
+                    os.remove(self._storage_path)
+                except OSError:
+                    pass
+                ctx = await self._browser.new_context()
+            else:
+                raise
+
+        self._tag_contexts[tag_lower] = ctx
+        self._tag_window_ids[tag_lower] = uuid.uuid4().hex[:8]
+
+        # Listen for context close
+        ctx.on("close", lambda: self._on_context_closed(tag_lower))
+        return ctx
+
+    async def _open_tab_group(self, tag: str, urls: list[str], focus_url: str | None = None):
+        tag_lower = tag.lower()
+
+        # If context already exists for this tag, just focus it
+        if tag_lower in self._tag_contexts:
+            ctx = self._tag_contexts[tag_lower]
+            try:
+                pages = ctx.pages
+                if pages:
+                    # Focus the matching URL or the first page
+                    target = None
+                    if focus_url:
+                        target = next((p for p in pages if p.url == focus_url), None)
+                    if target is None:
+                        target = pages[0]
+                    await target.bring_to_front()
+                    return
+            except Exception:
+                # Context dead, remove and recreate
+                del self._tag_contexts[tag_lower]
+                if tag_lower in self._tag_window_ids:
+                    del self._tag_window_ids[tag_lower]
+
+        ctx = await self._get_or_create_context(tag)
+
+        # Determine open order (focus_url first)
+        first_url = focus_url if focus_url and focus_url in urls else urls[0]
+        other_urls = [u for u in urls if u != first_url]
+
+        # Open first URL in the default page or a new one
+        if ctx.pages:
+            page = ctx.pages[0]
+            await page.goto(first_url, wait_until="commit")
+        else:
+            page = await ctx.new_page()
+            await page.goto(first_url, wait_until="commit")
+
+        page_id = uuid.uuid4().hex[:8]
+        self._page_map[page_id] = page
+        self._page_tags[page_id] = tag_lower
+        page.on("close", lambda: self._on_page_closed(page_id))
+
+        # Open remaining URLs
+        for url in other_urls:
+            p = await ctx.new_page()
+            await p.goto(url, wait_until="commit")
+            pid = uuid.uuid4().hex[:8]
+            self._page_map[pid] = p
+            self._page_tags[pid] = tag_lower
+            p.on("close", lambda pid=pid: self._on_page_closed(pid))
+
+        # Focus the first page
+        await page.bring_to_front()
+        self._active_pages[tag_lower] = page_id
+
+    async def _open_single_tab(self, url: str, tag: str | None = None):
+        if tag:
+            tag_lower = tag.lower()
+            if tag_lower in self._tag_contexts:
+                ctx = self._tag_contexts[tag_lower]
+                try:
+                    page = await ctx.new_page()
+                    await page.goto(url, wait_until="commit")
+                    pid = uuid.uuid4().hex[:8]
+                    self._page_map[pid] = page
+                    self._page_tags[pid] = tag_lower
+                    page.on("close", lambda: self._on_page_closed(pid))
+                    await page.bring_to_front()
+                    self._active_pages[tag_lower] = pid
+                    return
+                except Exception:
+                    pass
+
+        # No tag or tag context doesn't exist — create a new context
+        effective_tag = tag or "_default"
+        tag_lower = effective_tag.lower()
+        ctx = await self._get_or_create_context(effective_tag)
+        page = await ctx.new_page()
+        await page.goto(url, wait_until="commit")
+        pid = uuid.uuid4().hex[:8]
+        self._page_map[pid] = page
+        self._page_tags[pid] = tag_lower
+        page.on("close", lambda: self._on_page_closed(pid))
+        await page.bring_to_front()
+        self._active_pages[tag_lower] = pid
+
+    def _on_page_closed(self, page_id: str):
+        """Clean up when a page is manually closed."""
+        self._page_map.pop(page_id, None)
+        self._page_tags.pop(page_id, None)
+
+    def _on_context_closed(self, tag: str):
+        """Clean up when a context (window) is manually closed."""
+        # Remove all pages for this tag
+        to_remove = [pid for pid, t in self._page_tags.items() if t == tag]
+        for pid in to_remove:
+            self._page_map.pop(pid, None)
+            self._page_tags.pop(pid, None)
+        self._tag_contexts.pop(tag, None)
+        self._tag_window_ids.pop(tag, None)
+        self._active_pages.pop(tag, None)
