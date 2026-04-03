@@ -51,6 +51,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
+    // Help button → Keyboard shortcuts overlay
+    const helpBtn = document.getElementById('btn-help');
+    if (helpBtn) {
+        helpBtn.addEventListener('click', () => {
+            // Simulate pressing '?' to toggle help overlay
+            document.dispatchEvent(new KeyboardEvent('keydown', { key: '?' }));
+        });
+    }
+
     // Settings button → Category Manage Modal
     const settingsBtn = document.getElementById('btn-settings');
     if (settingsBtn) {
