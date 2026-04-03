@@ -166,12 +166,45 @@ class ChromeBrowserManager:
         except Exception:
             return False
 
+    # --- Internal methods ---
+
+    def _get_screen_size(self):
+        """Get primary screen resolution."""
+        try:
+            if platform.system() == "Windows":
+                import ctypes
+                user32 = ctypes.windll.user32
+                return user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
+            elif platform.system() == "Darwin":
+                try:
+                    from AppKit import NSScreen
+                    frame = NSScreen.mainScreen().frame()
+                    return int(frame.size.width), int(frame.size.height)
+                except ImportError:
+                    pass
+        except Exception:
+            pass
+        # Fallback
+        return 3440, 1440
+
+    def _get_chrome_layout(self):
+        """Return (left, top, width, height) for Chrome windows (right 90%)."""
+        w, h = self._get_screen_size()
+        menubar_width = int(w * 0.1)
+        return menubar_width, 0, w - menubar_width, h
+
     # --- Internal async methods (run on dedicated loop) ---
 
     async def _start_browser(self):
         from playwright.async_api import async_playwright
         self._playwright = await async_playwright().start()
-        launch_args = ["--no-first-run", "--no-default-browser-check"]
+        left, top, width, height = self._get_chrome_layout()
+        launch_args = [
+            "--no-first-run",
+            "--no-default-browser-check",
+            f"--window-position={left},{top}",
+            f"--window-size={width},{height}",
+        ]
         self._browser = await self._playwright.chromium.launch(
             headless=self._headless,
             args=launch_args,
@@ -272,7 +305,8 @@ class ChromeBrowserManager:
                 del self._tag_window_ids[tag_lower]
 
         # Create new context, loading storage state if available
-        kwargs = {}
+        _, _, width, height = self._get_chrome_layout()
+        kwargs = {"viewport": {"width": width, "height": height}}
         if os.path.isfile(self._storage_path):
             kwargs["storage_state"] = self._storage_path
 
