@@ -87,6 +87,10 @@ def _start_browser_manager():
 
 def _setup_global_hotkey(window):
     """Register Ctrl+Shift+F as global hotkey to focus search box."""
+    if platform.system() == "Windows":
+        return _setup_global_hotkey_windows(window)
+
+    # macOS / Linux: use pynput
     try:
         from pynput.keyboard import GlobalHotKeys
 
@@ -104,6 +108,40 @@ def _setup_global_hotkey(window):
     except ImportError:
         pass  # pynput not available
     return None
+
+
+def _setup_global_hotkey_windows(window):
+    """Windows-specific global hotkey using RegisterHotKey API.
+
+    More reliable than pynput on Windows — uses the native OS hotkey
+    mechanism which works regardless of which window has focus.
+    """
+    import ctypes
+    from ctypes import wintypes
+
+    user32 = ctypes.windll.user32
+
+    MOD_CONTROL = 0x0002
+    MOD_SHIFT = 0x0004
+    VK_F = 0x46
+    HOTKEY_ID = 1
+    WM_HOTKEY = 0x0312
+
+    def hotkey_thread():
+        if not user32.RegisterHotKey(None, HOTKEY_ID, MOD_CONTROL | MOD_SHIFT, VK_F):
+            return  # registration failed (key combo in use by another app)
+        msg = wintypes.MSG()
+        while user32.GetMessageW(ctypes.byref(msg), None, 0, 0) != 0:
+            if msg.message == WM_HOTKEY and msg.wParam == HOTKEY_ID:
+                threading.Thread(
+                    target=_bring_to_front,
+                    args=(window,),
+                    daemon=True,
+                ).start()
+
+    t = threading.Thread(target=hotkey_thread, daemon=True)
+    t.start()
+    return t
 
 
 # ---------------------------------------------------------------------------
