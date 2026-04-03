@@ -35,6 +35,13 @@ const KeyboardNav = (() => {
                 }
                 break;
 
+            case ' ':
+                if (isSearchInput && Store.getState().keyboardNavIndex >= 0) {
+                    e.preventDefault();
+                    openAtIndex(Store.getState().keyboardNavIndex);
+                }
+                break;
+
             case 'Enter':
                 if (isSearchInput || !isInInput) {
                     const idx = Store.getState().keyboardNavIndex;
@@ -78,7 +85,7 @@ const KeyboardNav = (() => {
     function openAtIndex(index) {
         const items = Store.getFilteredBookmarks();
         if (index >= 0 && index < items.length) {
-            Store.openTab(items[index]);
+            Store.openBookmarkInChrome(items[index]);
             Store.setKeyboardNavIndex(-1);
         }
     }

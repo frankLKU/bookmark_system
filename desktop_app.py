@@ -89,8 +89,10 @@ def _setup_global_hotkey(window):
     """Register Ctrl+Shift+F as global hotkey to focus search box."""
     if platform.system() == "Windows":
         return _setup_global_hotkey_windows(window)
+    if platform.system() == "Darwin":
+        return _setup_global_hotkey_macos(window)
 
-    # macOS / Linux: use pynput
+    # Linux: use pynput
     try:
         from pynput.keyboard import GlobalHotKeys
 
@@ -106,8 +108,61 @@ def _setup_global_hotkey(window):
         hotkeys.start()
         return hotkeys
     except ImportError:
-        pass  # pynput not available
+        pass
     return None
+
+
+def _setup_global_hotkey_macos(window):
+    """macOS-specific global hotkey using Quartz CGEventTap.
+
+    More reliable than pynput — uses the native macOS event tap API.
+    Requires Accessibility permission for the running application.
+    """
+    try:
+        import Quartz
+        from Foundation import NSRunLoop, NSDefaultRunLoopMode
+    except ImportError:
+        print("[TIBDP] pyobjc-framework-Quartz not installed, global hotkey disabled")
+        return None
+
+    def callback(_proxy, event_type, event, _refcon):
+        if event_type == Quartz.kCGEventKeyDown:
+            flags = Quartz.CGEventGetFlags(event)
+            keycode = Quartz.CGEventGetIntegerValueField(
+                event, Quartz.kCGKeyboardEventKeycode
+            )
+            # keycode 3 = 'F' on US keyboard layout
+            ctrl = flags & Quartz.kCGEventFlagMaskControl
+            shift = flags & Quartz.kCGEventFlagMaskShift
+            if ctrl and shift and keycode == 3:
+                threading.Thread(
+                    target=_bring_to_front,
+                    args=(window,),
+                    daemon=True,
+                ).start()
+        return event
+
+    def tap_thread():
+        tap = Quartz.CGEventTapCreate(
+            Quartz.kCGSessionEventTap,
+            Quartz.kCGHeadInsertEventTap,
+            Quartz.kCGEventTapOptionListenOnly,
+            Quartz.CGEventMaskBit(Quartz.kCGEventKeyDown),
+            callback,
+            None,
+        )
+        if tap is None:
+            print("[TIBDP] Failed to create event tap — grant Accessibility permission")
+            return
+        source = Quartz.CFMachPortCreateRunLoopSource(None, tap, 0)
+        loop = Quartz.CFRunLoopGetCurrent()
+        Quartz.CFRunLoopAddSource(loop, source, Quartz.kCFRunLoopDefaultMode)
+        Quartz.CGEventTapEnable(tap, True)
+        Quartz.CFRunLoopRun()
+
+    t = threading.Thread(target=tap_thread, daemon=True)
+    t.start()
+    return t
 
 
 def _setup_global_hotkey_windows(window):

@@ -189,7 +189,7 @@ const Sidebar = (() => {
 
     function updateKeyboardHighlight(index) {
         document.querySelectorAll('.bookmark-item').forEach(item => {
-            item.classList.toggle('keyboard-active', parseInt(item.dataset.navIndex) === index);
+            item.classList.toggle('keyboard-focus', parseInt(item.dataset.navIndex) === index);
         });
         // Scroll into view
         const active = document.querySelector('.bookmark-item.keyboard-active');
