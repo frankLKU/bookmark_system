@@ -11,13 +11,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (typeof Theme !== 'undefined' && Theme.init) Theme.init();
 
     // ------------------------------------------------------------------
-    // Bootstrap: load data
-    // ------------------------------------------------------------------
-    await Store.loadCategories();
-    await Store.loadBookmarks();
-    Store.loadHealthStatus(); // fire-and-forget — health check can be slow
-
-    // ------------------------------------------------------------------
     // Initialise UI components (those that have an init())
     // ------------------------------------------------------------------
     if (typeof WorkspaceBar !== 'undefined' && WorkspaceBar.init) WorkspaceBar.init();
@@ -25,6 +18,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (typeof ChromeTabs !== 'undefined' && ChromeTabs.init) ChromeTabs.init();
     if (typeof KeyboardNav !== 'undefined' && KeyboardNav.init) KeyboardNav.init();
     if (typeof Router !== 'undefined' && Router.init) Router.init();
+
+    // ------------------------------------------------------------------
+    // Bootstrap: load data (after UI init so buttons work even if API fails)
+    // ------------------------------------------------------------------
+    try {
+        await Store.loadCategories();
+        await Store.loadBookmarks();
+    } catch (e) {
+        console.error('[TIBDP] Failed to load initial data:', e);
+    }
+    Store.loadHealthStatus(); // fire-and-forget — health check can be slow
 
     // ------------------------------------------------------------------
     // Health check: run once immediately, then every 60 s
