@@ -130,6 +130,42 @@ class ChromeBrowserManager:
         )
         future.result(timeout=10)
 
+    def switch_tab(self, page_id: str) -> bool:
+        """Bring a tab to front. Returns True if found, False otherwise."""
+        if not self.connected:
+            return False
+        try:
+            future = asyncio.run_coroutine_threadsafe(
+                self._switch_tab(page_id), self._loop
+            )
+            return future.result(timeout=5)
+        except Exception:
+            return False
+
+    def close_tab(self, page_id: str) -> bool:
+        """Close a tab. Returns True if found, False otherwise."""
+        if not self.connected:
+            return False
+        try:
+            future = asyncio.run_coroutine_threadsafe(
+                self._close_tab(page_id), self._loop
+            )
+            return future.result(timeout=5)
+        except Exception:
+            return False
+
+    def close_group(self, tag: str) -> bool:
+        """Close all tabs for a tag. Returns True if found, False otherwise."""
+        if not self.connected:
+            return False
+        try:
+            future = asyncio.run_coroutine_threadsafe(
+                self._close_group(tag), self._loop
+            )
+            return future.result(timeout=10)
+        except Exception:
+            return False
+
     # --- Internal async methods (run on dedicated loop) ---
 
     async def _start_browser(self):
@@ -362,3 +398,38 @@ class ChromeBrowserManager:
         self._tag_contexts.pop(tag, None)
         self._tag_window_ids.pop(tag, None)
         self._active_pages.pop(tag, None)
+
+    async def _switch_tab(self, page_id: str) -> bool:
+        page = self._page_map.get(page_id)
+        if page is None or page.is_closed():
+            return False
+        await page.bring_to_front()
+        tag = self._page_tags.get(page_id)
+        if tag:
+            self._active_pages[tag] = page_id
+        return True
+
+    async def _close_tab(self, page_id: str) -> bool:
+        page = self._page_map.get(page_id)
+        if page is None:
+            return False
+        try:
+            await page.close()
+        except Exception:
+            pass
+        # _on_page_closed callback handles cleanup
+        return True
+
+    async def _close_group(self, tag: str) -> bool:
+        tag_lower = tag.lower()
+        ctx = self._tag_contexts.get(tag_lower)
+        if ctx is None:
+            return False
+        # Save storage state before closing
+        await self._save_storage_state()
+        try:
+            await ctx.close()
+        except Exception:
+            pass
+        # _on_context_closed callback handles cleanup
+        return True

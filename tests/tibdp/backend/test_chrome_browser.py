@@ -82,3 +82,50 @@ class TestTabGroupOperations:
         self.mgr.open_single_tab("https://example.com")
         tabs = self.mgr.get_tabs()
         assert len(tabs) == 1
+
+
+class TestTabManagement:
+    @pytest.fixture(autouse=True)
+    def manager(self):
+        from app.services.chrome_browser import ChromeBrowserManager
+        self.mgr = ChromeBrowserManager(headless=True)
+        self.mgr.start()
+        yield
+        self.mgr.stop()
+
+    def test_switch_tab(self):
+        self.mgr.open_tab_group("f14", ["https://example.com", "https://example.org"])
+        tabs = self.mgr.get_tabs()
+        assert len(tabs) == 2
+        # Switch to second tab — should not raise
+        self.mgr.switch_tab(tabs[1]["id"])
+
+    def test_switch_tab_invalid_id(self):
+        # Should not raise, just return False
+        result = self.mgr.switch_tab("nonexistent")
+        assert result is False
+
+    def test_close_tab(self):
+        self.mgr.open_tab_group("f14", ["https://example.com", "https://example.org"])
+        tabs = self.mgr.get_tabs()
+        assert len(tabs) == 2
+        self.mgr.close_tab(tabs[0]["id"])
+        tabs = self.mgr.get_tabs()
+        assert len(tabs) == 1
+
+    def test_close_tab_invalid_id(self):
+        result = self.mgr.close_tab("nonexistent")
+        assert result is False
+
+    def test_close_group(self):
+        self.mgr.open_tab_group("f14", ["https://example.com"])
+        self.mgr.open_tab_group("f18", ["https://example.org"])
+        assert len(self.mgr.get_tabs()) == 2
+        self.mgr.close_group("f14")
+        tabs = self.mgr.get_tabs()
+        assert len(tabs) == 1
+        assert tabs[0]["groupName"] == "F18"
+
+    def test_close_group_nonexistent(self):
+        result = self.mgr.close_group("nonexistent")
+        assert result is False
